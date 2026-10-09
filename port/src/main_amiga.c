@@ -7,7 +7,12 @@
  * Needs AmigaOS 3.1+ (V40) and a 68020+ (built for the 68060); AHI is optional.
  *
  * Shell:  Vastar [SET] [SCALE=1|2|3] [ROMPATH=dir] [NOSOUND] [SOUND=PAULA|AHI]
- *                [VIDEO=BLIT|WPA|WCP] [FRAMESKIP=AUTO|n] [DSW1=hh] [DSW2=hh] [STATS|STATS=FULL]
+ *                [VIDEO=BLIT|WPA|WCP] [FRAMESKIP=AUTO|n] [SCREEN=WINDOW|FULL] [LIVES=1..9|INFINITE]
+ *                [FREEPLAY] [JOYPORT=BOTH] [DSW1=hh] [DSW2=hh] [STATS|STATS=FULL]
+ *         SCREEN=FULL: an own screen (mode of the graphics card), picture centred
+ *         LIVES: lives at the start of a game (the DIP switches allow 3 to 6), INFINITE
+ *         FREEPLAY: no coins needed, the joystick's fire button starts a game
+ *         JOYPORT=BOTH: a joystick in the mouse port works too
  *         FRAMESKIP: the game always runs at 60.6 Hz; AUTO (default) leaves out pictures
  *         when the Amiga falls behind, n draws one picture of n+1
  *         SET = vastar (default), vastar2, vastar3, vastar4, pprobe
@@ -36,6 +41,8 @@
 #include <devices/inputevent.h>
 #include <intuition/intuition.h>
 #include <graphics/gfx.h>
+#include <graphics/modeid.h>
+#include <graphics/displayinfo.h>
 #include <libraries/lowlevel.h>
 #include <proto/exec.h>
 #include <proto/icon.h>
@@ -104,6 +111,13 @@ static const char *set_name = "vastar";
 static const char *rompaths[4];
 static int nrompaths;
 static int dsw1 = -1, dsw2 = -1;
+static int lives, infinite_lives;     /* LIVES=1..9 | INFINITE (not in the original) */
+static int freeplay;                  /* FREEPLAY: no coins; fire starts a game */
+static int joy_mouseport;             /* JOYPORT=BOTH: also a joystick in the mouse port */
+static int screen_full;               /* SCREEN=FULL: an own screen instead of a window */
+static struct Screen *scr;
+static UWORD *blank_pointer;
+static int ox, oy;                    /* where the picture starts in the window */
 
 static void close_sound(void);
 static void close_rtg(void);
@@ -229,8 +243,14 @@ static void cleanup(void)
             for (i = 0; i < 256; i++)
                 if (pens[i] >= 0)
                     ReleasePen(win->WScreen->ViewPort.ColorMap, (ULONG)pens[i]);
+        if (blank_pointer)
+            ClearPointer(win);
         CloseWindow(win);
     }
+    if (blank_pointer)
+        FreeVec(blank_pointer);
+    if (scr)
+        CloseScreen(scr);
     if (chunky)
         FreeVec(chunky);
     if (LowLevelBase)
@@ -259,11 +279,92 @@ static void fail(const char *msg)
 
 /* ------------------------------------------------------------------ video */
 
+/* SCREEN=FULL: an own screen in the best mode for the picture (on RTG systems a mode
+   of the graphics card, 16 bit preferred), a borderless backdrop window on it, the
+   picture centred, no mouse pointer */
+static void open_fullscreen(void)
+{
+    static ULONG black[] = { 1UL << 16, 0, 0, 0, 0 };
+    const ULONG w = (ULONG)(RENDER_W * scale), h = (ULONG)(RENDER_H * scale);
+    ULONG id = INVALID_ID, mode = INVALID_ID, depth = 8, best_area = 0xffffffffUL;
+    int best_rank = 0;
+    struct DimensionInfo dims;
+
+    /* the smallest available mode that holds the picture; 16 bit before 32/24 bit
+       before 8 bit (8 bit needs pens for the 84 colours of the game) */
+    while ((id = NextDisplayInfo(id)) != INVALID_ID) {
+        struct DisplayInfo disp;
+        ULONG mw, mh, area;
+        int rank;
+        if (!GetDisplayInfoData(NULL, (UBYTE *)&disp, sizeof disp, DTAG_DISP, id) || disp.NotAvailable ||
+            !GetDisplayInfoData(NULL, (UBYTE *)&dims, sizeof dims, DTAG_DIMS, id))
+            continue;
+        mw = (ULONG)(dims.Nominal.MaxX - dims.Nominal.MinX + 1);
+        mh = (ULONG)(dims.Nominal.MaxY - dims.Nominal.MinY + 1);
+        if (mw < w || mh < h || (disp.PropertyFlags & DIPF_IS_LACE))
+            continue;
+        rank = dims.MaxDepth >= 15 && dims.MaxDepth <= 16 ? 3 : dims.MaxDepth > 16 ? 2 : dims.MaxDepth == 8 ? 1 : 0;
+        if (!rank)
+            continue;
+        area = mw * mh;
+        if (rank > best_rank || (rank == best_rank && area < best_area)) {
+            best_rank = rank;
+            best_area = area;
+            mode = id;
+            depth = rank == 3 ? dims.MaxDepth : rank == 2 ? dims.MaxDepth : 8;
+        }
+    }
+    if (mode == INVALID_ID || !GetDisplayInfoData(NULL, (UBYTE *)&dims, sizeof dims, DTAG_DIMS, mode))
+        fail("No screen mode for the full screen picture.\nTry a smaller SCALE or SCREEN=WINDOW.");
+    scr = OpenScreenTags(NULL,
+                         SA_DisplayID, mode,
+                         SA_Width, (ULONG)(dims.Nominal.MaxX - dims.Nominal.MinX + 1),
+                         SA_Height, (ULONG)(dims.Nominal.MaxY - dims.Nominal.MinY + 1),
+                         SA_Depth, depth,
+                         SA_Quiet, TRUE,
+                         SA_ShowTitle, FALSE,
+                         SA_Type, CUSTOMSCREEN,
+                         SA_Title, (ULONG)"Vastar",
+                         SA_Colors32, (ULONG)black,
+                         TAG_DONE);
+    if (!scr)
+        fail("Cannot open the screen.");
+    if ((ULONG)scr->Width < w || (ULONG)scr->Height < h)
+        fail("The screen mode is smaller than the picture.\nTry a smaller SCALE.");
+    win = OpenWindowTags(NULL,
+                         WA_CustomScreen, (ULONG)scr,
+                         WA_Left, 0,
+                         WA_Top, 0,
+                         WA_Width, (ULONG)scr->Width,
+                         WA_Height, (ULONG)scr->Height,
+                         /* no title: it would cover the picture (STATS sets one anyway) */
+                         WA_Borderless, TRUE,
+                         WA_Backdrop, TRUE,
+                         WA_Activate, TRUE,
+                         WA_RMBTrap, TRUE,
+                         WA_SimpleRefresh, TRUE,
+                         WA_NoCareRefresh, TRUE,
+                         WA_IDCMP, IDCMP_RAWKEY | IDCMP_INACTIVEWINDOW | IDCMP_ACTIVEWINDOW,
+                         TAG_DONE);
+    if (!win)
+        fail("Cannot open the window.");
+    blank_pointer = AllocVec(16, MEMF_CHIP | MEMF_CLEAR);
+    if (blank_pointer)
+        SetPointer(win, blank_pointer, 1, 16, 0, 0);
+    SetAPen(win->RPort, 0);
+    RectFill(win->RPort, 0, 0, scr->Width - 1, scr->Height - 1);
+    ox = (scr->Width - (int)w) / 2;
+    oy = (scr->Height - (int)h) / 2;
+}
+
 static void open_window(void)
 {
     struct ColorMap *cm;
     int i;
 
+    if (screen_full)
+        open_fullscreen();
+    else
     win = OpenWindowTags(NULL,
                          WA_Title, (ULONG)machine.game->title,
                          WA_InnerWidth, RENDER_W * scale,
@@ -279,6 +380,10 @@ static void open_window(void)
                          TAG_DONE);
     if (!win)
         fail("Cannot open the window.");
+    if (!screen_full) {
+        ox = win->BorderLeft;
+        oy = win->BorderTop;
+    }
 
     /* pens are only needed on 8 bit screens (CLUT) and for WriteChunkyPixels */
     cm = win->WScreen->ViewPort.ColorMap;
@@ -582,7 +687,7 @@ static void present_rtg(int n, UBYTE dirty[RENDER_BH][RENDER_BW])
         for (i = 0; i < n; i++) {
             const int y0 = run_by[i] * 8, x0 = run_x0[i] * 8, x1 = run_x1[i] * 8;
             p96WritePixelArray(&ri, (UWORD)(x0 * scale), (UWORD)(y0 * scale), win->RPort,
-                               (UWORD)(win->BorderLeft + x0 * scale), (UWORD)(win->BorderTop + y0 * scale),
+                               (UWORD)(ox + x0 * scale), (UWORD)(oy + y0 * scale),
                                (UWORD)((x1 - x0) * scale), (UWORD)(8 * scale));
         }
         return;
@@ -645,7 +750,7 @@ static void present_rtg(int n, UBYTE dirty[RENDER_BH][RENDER_BW])
                 }
         if (x1 >= 0)
             BltBitMapRastPort(vbm, (WORD)(x0 * 8 * scale), (WORD)(y0 * 8 * scale), win->RPort,
-                              (WORD)(win->BorderLeft + x0 * 8 * scale), (WORD)(win->BorderTop + y0 * 8 * scale),
+                              (WORD)(ox + x0 * 8 * scale), (WORD)(oy + y0 * 8 * scale),
                               (WORD)((x1 + 1 - x0) * 8 * scale), (WORD)((y1 + 1 - y0) * 8 * scale), 0xC0);
     }
     (void)i;
@@ -668,9 +773,9 @@ static void present_chunky(int n)
                 memcpy(line + k * w, line, (size_t)w);
         }
         WriteChunkyPixels(win->RPort,
-                          (ULONG)(win->BorderLeft + x0 * scale), (ULONG)(win->BorderTop + y0 * scale),
-                          (ULONG)(win->BorderLeft + (x0 + pixels) * scale - 1),
-                          (ULONG)(win->BorderTop + (y0 + 8) * scale - 1),
+                          (ULONG)(ox + x0 * scale), (ULONG)(oy + y0 * scale),
+                          (ULONG)(ox + (x0 + pixels) * scale - 1),
+                          (ULONG)(oy + (y0 + 8) * scale - 1),
                           chunky, (LONG)w);
     }
 }
@@ -700,7 +805,7 @@ static void verify_window(void)
     ri.BytesPerRow = (WORD)(w * vbpp);
     ri.pad = 0;
     ri.RGBFormat = (RGBFTYPE)scr_fmt;
-    p96ReadPixelArray(&ri, 0, 0, win->RPort, (UWORD)win->BorderLeft, (UWORD)win->BorderTop,
+    p96ReadPixelArray(&ri, 0, 0, win->RPort, (UWORD)ox, (UWORD)oy,
                       (UWORD)w, (UWORD)h);
     verify_checks++;
     for (by = 0; by < RENDER_BH; by++)
@@ -1188,17 +1293,33 @@ static void read_inputs(void)
     if (keys[RAW_1]) sys |= IN_START1;
     if (keys[RAW_2]) sys |= IN_START2;
 
+    /* the joystick port, and with JOYPORT=BOTH the mouse port too (a mouse there is
+       ignored). Joystick: fire, second button = button 2. CD32 pad: red = fire,
+       blue = button 2, play = start, green = coin, yellow = start 2 players.
+       FREEPLAY: fire also starts a game (harmless during one). */
     if (LowLevelBase) {
-        ULONG j = ReadJoyPort(1), type = j & JP_TYPE_MASK;
-        joy_state = j;
-        if (type == JP_TYPE_JOYSTK || type == JP_TYPE_GAMECTLR) {
+        int port;
+        for (port = 1; port >= (joy_mouseport ? 0 : 1); port--) {
+            ULONG j = ReadJoyPort((ULONG)port), type = j & JP_TYPE_MASK;
+            if (port == 1)
+                joy_state = j;
+            if (type != JP_TYPE_JOYSTK && type != JP_TYPE_GAMECTLR)
+                continue;
             if (j & JPF_JOY_UP) p1 |= IN_UP;
             if (j & JPF_JOY_DOWN) p1 |= IN_DOWN;
             if (j & JPF_JOY_LEFT) p1 |= IN_LEFT;
             if (j & JPF_JOY_RIGHT) p1 |= IN_RIGHT;
-            if (j & JPF_BUTTON_RED) p1 |= IN_BUTTON1;
+            if (j & JPF_BUTTON_RED) {
+                p1 |= IN_BUTTON1;
+                if (freeplay)
+                    sys |= IN_START1;
+            }
             if (j & JPF_BUTTON_BLUE) p1 |= IN_BUTTON2;
-            if (j & JPF_BUTTON_PLAY) sys |= IN_START1;
+            if (type == JP_TYPE_GAMECTLR) {
+                if (j & JPF_BUTTON_PLAY) sys |= IN_START1;
+                if (j & JPF_BUTTON_GREEN) sys |= IN_COIN1;
+                if (j & JPF_BUTTON_YELLOW) sys |= IN_START2;
+            }
         }
     }
     machine.in_p1 = p1;
@@ -1258,6 +1379,18 @@ static void parse_option(const char *opt)
         frameskip = -1;
     else if (same_text(name, "FRAMESKIP") && val)
         frameskip = atoi(val);
+    else if (same_text(opt, "LIVES=INFINITE"))
+        infinite_lives = 1;
+    else if (same_text(name, "LIVES") && val)
+        lives = atoi(val);
+    else if (same_text(opt, "FREEPLAY"))
+        freeplay = 1;
+    else if (same_text(opt, "JOYPORT=BOTH"))
+        joy_mouseport = 1;
+    else if (same_text(opt, "SCREEN=FULL"))
+        screen_full = 1;
+    else if (same_text(opt, "SCREEN=WINDOW"))
+        screen_full = 0;
     else if (same_text(name, "DSW1") && val)
         dsw1 = (int)strtol(val, 0, 16);
     else if (same_text(name, "DSW2") && val)
@@ -1416,6 +1549,12 @@ int main(int argc, char **argv)
     vastar_init(&machine, AUDIO_RATE);
     if (dsw1 >= 0) machine.dsw1 = (uint8_t)dsw1;
     if (dsw2 >= 0) machine.dsw2 = (uint8_t)dsw2;
+    if (freeplay)
+        machine.dsw2 &= 0xf8;            /* coin A: free play */
+    if (lives > 9)
+        lives = 9;                       /* more icons than fit in the bottom row otherwise */
+    machine.lives = (uint8_t)(lives > 0 ? lives : 0);
+    machine.infinite_lives = (uint8_t)infinite_lives;
     video_init(&video, &machine);
 
     open_window();

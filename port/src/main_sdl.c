@@ -7,6 +7,9 @@
  *                       ROM files; may be repeated, default: . roms rom
  *   -scale N            window scale (default 3)
  *   -dsw1 HH -dsw2 HH   DIP switches (hex, default from MAME)
+ *   -freeplay           no coins needed (DIP switch); fire also starts a game
+ *   -lives N            lives at the start of a game, 1-9 (not in the original: the DIP
+ *                       switches allow 3 to 6); -lives inf: lives do not run out
  *   -nosound
  *   -frames N           quit after N frames
  *   -fast               no 60 Hz pacing
@@ -52,7 +55,7 @@ static const char *rompaths[16];
 static int nrompaths;
 static int scale = 3, nosound, fast, headless, stats;
 static long max_frames = -1;
-static int dsw1 = -1, dsw2 = -1;
+static int dsw1 = -1, dsw2 = -1, lives, infinite_lives, freeplay;
 static const char *shot_dir;
 static long shot_frames[64];
 static int shot_count;
@@ -126,6 +129,12 @@ static void parse_args(int argc, char **argv)
         else if (!strcmp(a, "-dsw1")) dsw1 = (int)strtol(NEXT(), 0, 16);
         else if (!strcmp(a, "-dsw2")) dsw2 = (int)strtol(NEXT(), 0, 16);
         else if (!strcmp(a, "-nosound")) nosound = 1;
+        else if (!strcmp(a, "-freeplay")) freeplay = 1;
+        else if (!strcmp(a, "-lives")) {
+            const char *l = NEXT();
+            if (!strcmp(l, "inf")) infinite_lives = 1;
+            else lives = atoi(l);
+        }
         else if (!strcmp(a, "-frames")) max_frames = atol(NEXT());
         else if (!strcmp(a, "-fast")) fast = 1;
         else if (!strcmp(a, "-headless")) headless = fast = nosound = 1;
@@ -338,6 +347,10 @@ int main(int argc, char **argv)
     vastar_init(&machine, SAMPLE_RATE);
     if (dsw1 >= 0) machine.dsw1 = (uint8_t)dsw1;
     if (dsw2 >= 0) machine.dsw2 = (uint8_t)dsw2;
+    if (freeplay)
+        machine.dsw2 &= 0xf8;                       /* coin A: free play */
+    machine.lives = (uint8_t)(lives < 0 ? 0 : lives > 9 ? 9 : lives);
+    machine.infinite_lives = (uint8_t)infinite_lives;
     video_init(&video, &machine);
 
     if (SDL_Init(headless ? SDL_INIT_TIMER : SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0) {
@@ -410,6 +423,8 @@ int main(int argc, char **argv)
         machine.in_p1 = (uint8_t)(kb_p1 | pad_p1 | script_p1);
         machine.in_p2 = 0;
         machine.in_system = (uint8_t)(kb_sys | pad_sys | script_sys);
+        if (freeplay && (pad_p1 & IN_BUTTON1))
+            machine.in_system |= IN_START1;          /* the pad's fire starts a game */
 
         if (!paused) {
             t0 = SDL_GetPerformanceCounter();

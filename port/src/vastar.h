@@ -80,6 +80,10 @@ typedef struct Vastar {
 
     uint8_t in_p1, in_p2, in_system, dsw1, dsw2;
 
+    /* not in the original: lives at the start of a game (0 = the DIP switches, which
+       allow 3 to 6), and lives that do not run out */
+    uint8_t lives, infinite_lives;
+
     Z80 main, sub;
     AY8910 ay;
 

@@ -263,6 +263,19 @@ void vastar_reset(Vastar *m)
 int vastar_run_frame(Vastar *m, int16_t *audio)
 {
     int slice, samples = 0;
+    /* extra lives (Vastar sets only): f101 is the game's copy of the lives setting,
+       which it reads when a game starts; f110 the lives left (besides the one in play) */
+    if (m->game && strncmp(m->game->name, "vastar", 6) == 0) {
+        if (m->lives) {
+            m->mmem[0xf101] = m->lives;
+            m->smem[0x4101] = m->lives;          /* the sub CPU's copy of the shared RAM */
+        }
+        if (m->infinite_lives && m->mmem[0xf110] < 2) {
+            m->mmem[0xf110] = 2;
+            m->smem[0x4110] = 2;
+        }
+    }
+
     /* the inputs as the sub CPU reads them */
     m->smem[0x8000] = m->in_p2;
     m->smem[0x8040] = m->in_p1;
