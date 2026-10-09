@@ -91,7 +91,7 @@ static const RomDef roms_pprobe[] = {
 
 /* DSW1 defaults: 3 lives, upright cabinet (bit 6 = 0); DSW2: 1 coin 1 credit */
 const GameDef vastar_games[] = {
-    { "vastar",  0,        "Vastar (set 1)",            roms_vastar,  COUNT(roms_vastar),  0xbf, 0xff },
+    { "vastar",  0,        "Vastar",                    roms_vastar,   COUNT(roms_vastar),  0xbf, 0xff },
     { "vastar2", "vastar", "Vastar (set 2)",            roms_vastar2, COUNT(roms_vastar2), 0xbf, 0xff },
     { "vastar3", "vastar", "Vastar (set 3)",            roms_vastar3, COUNT(roms_vastar3), 0xbf, 0xff },
     { "vastar4", "vastar", "Vastar (set 4)",            roms_vastar4, COUNT(roms_vastar4), 0xbf, 0xff },
