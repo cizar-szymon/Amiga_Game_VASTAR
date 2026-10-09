@@ -1,0 +1,51 @@
+# Vastar port - AmigaOS build with vbcc (cross compiled on Windows)
+#
+#   make -f Makefile.amiga        -> ../build/amiga/Vastar (AmigaOS 3.1+, built for the 68060)
+#                                    ../build/amiga/Lockstep  (asm Z80 core vs. C core)
+#                                    ../build/amiga/Z80Test   (zexdoc/zexall with the asm core)
+#                                    ../build/amiga/VideoTest (fast renderer vs. reference)
+#
+# Needs (as for Wizard of Wor): vbcc 0.9h with the m68k-amigaos target and the config
+# file aos68k_win (without -Rshort), NDK 3.2, the AHI and Picasso96 developer includes.
+# src/z80_68k.s is generated: python ../tools/gen_z80_68k.py
+
+AMIGA_DEV ?= C:/amiga-dev
+NDK       ?= $(AMIGA_DEV)/NDK3.2/Include_H
+AHI       ?= $(AMIGA_DEV)/ahidev/AHI/Developer/include/C
+
+export VBCC := $(AMIGA_DEV)/vbcc
+export PATH := $(shell cygpath -u "$(AMIGA_DEV)")/vbcc/bin:$(PATH)
+
+OUT      := ../build/amiga
+
+# 68060: no 64 bit MULU/DIVU (they would trap to 68060.library)
+# Z80_ASM: z80_run() is the assembler core, the C core is z80c_run()
+# VIDEO_ASM: the inner loops of the renderer come from video_68k.s
+CFLAGS   := +aos68k_win -c99 -cpu=68060 -O3 -speed -DZ80_ASM -DVIDEO_ASM \
+            -Isrc -I$(NDK) -I$(AHI) -I$(AMIGA_DEV)/p96inc
+
+CORE     := src/z80.c src/z80_68k.s src/ay8910.c src/vastar.c src/video.c src/video_68k.s src/romload.c
+HEADERS  := $(wildcard src/*.h)
+
+all: $(OUT)/Vastar $(OUT)/Lockstep $(OUT)/Z80Test $(OUT)/VideoTest
+
+$(OUT)/Vastar: $(CORE) src/main_amiga.c src/amiga_68k.s $(HEADERS)
+	mkdir -p $(OUT)
+	vc $(CFLAGS) $(CORE) src/main_amiga.c src/amiga_68k.s -o $@ -lamiga
+
+$(OUT)/Lockstep: $(CORE) tests/lockstep.c $(HEADERS)
+	mkdir -p $(OUT)
+	vc $(CFLAGS) $(CORE) tests/lockstep.c -o $@ -lamiga
+
+$(OUT)/Z80Test: src/z80.c src/z80_68k.s tests/z80_test.c src/z80.h
+	mkdir -p $(OUT)
+	vc $(CFLAGS) src/z80.c src/z80_68k.s tests/z80_test.c -o $@ -lamiga
+
+$(OUT)/VideoTest: $(CORE) tests/video_test.c $(HEADERS)
+	mkdir -p $(OUT)
+	vc $(CFLAGS) $(CORE) tests/video_test.c -o $@ -lamiga
+
+src/z80_68k.s: ../tools/gen_z80_68k.py
+	python ../tools/gen_z80_68k.py
+
+.PHONY: all
