@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="Useful Information/Vastar.png" width="800">
-  <img src="Useful Information/PlanetProbe.png" width="800">
+  <img src="../Useful Information/Vastar.png" width="800">
+  <img src="../Useful Information/PlanetProbe.png" width="800">
 </p>
 
 <h1 align="center">Vastar FPGA Core</h1>

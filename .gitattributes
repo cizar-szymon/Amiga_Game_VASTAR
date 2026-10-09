@@ -4,3 +4,4 @@
 *.png binary
 *.info binary
 port/amiga/*.txt text eol=lf
+releases/amiga/Vastar binary
