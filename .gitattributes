@@ -5,3 +5,4 @@
 *.info binary
 port/amiga/*.txt text eol=lf
 releases/amiga/Vastar binary
+releases/amiga/*.txt text eol=lf
