@@ -27,7 +27,7 @@ CFLAGS   := +aos68k_win -c99 -cpu=68060 -O3 -speed -DZ80_ASM -DVIDEO_ASM \
 CORE     := src/z80.c src/z80_68k.s src/ay8910.c src/vastar.c src/video.c src/video_68k.s src/romload.c
 HEADERS  := $(wildcard src/*.h)
 
-all: $(OUT)/Vastar $(OUT)/Vastar.info $(OUT)/Vastar.txt $(OUT)/Lockstep $(OUT)/Z80Test $(OUT)/VideoTest
+all: $(OUT)/Vastar $(OUT)/Vastar.info $(OUT)/Vastar.txt $(OUT)/Vastar_dev.txt $(OUT)/Lockstep $(OUT)/Z80Test $(OUT)/VideoTest
 
 $(OUT)/Vastar: $(CORE) src/main_amiga.c src/amiga_68k.s $(HEADERS)
 	mkdir -p $(OUT)
@@ -38,8 +38,12 @@ $(OUT)/Vastar.info: amiga/Vastar.info
 	mkdir -p $(OUT)
 	cp $< $@
 
-# the description of the options for the user (plain ASCII, LF)
+# the descriptions of the options: for players and for programmers (plain ASCII, LF)
 $(OUT)/Vastar.txt: amiga/Vastar.txt
+	mkdir -p $(OUT)
+	cp $< $@
+
+$(OUT)/Vastar_dev.txt: amiga/Vastar_dev.txt
 	mkdir -p $(OUT)
 	cp $< $@
 

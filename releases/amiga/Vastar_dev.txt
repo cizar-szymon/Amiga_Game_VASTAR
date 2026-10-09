@@ -1,0 +1,164 @@
+VASTAR - opis techniczny parametrow (dla programistow)
+=====================================================
+
+Program jest emulatorem plyty automatu Vastar (Orca, 1983): dwa Z80
+3,072 MHz (rdzen w asemblerze 68k), AY-3-8910 1,536 MHz, trzy warstwy
+kafelkow i 16 sprite'ow. Obraz 224x256 (monitor obrocony). Gra liczy
+zawsze 60,606 klatki na sekunde. Pelny opis budowy i pomiarow:
+docs/PORTING.md w repozytorium
+https://github.com/cizar-szymon/Amiga_Game_VASTAR
+
+Parametry: argumenty Shella albo Tool Types ikony (wpis w nawiasach jest
+wylaczony). Wielkosc liter bez znaczenia. W [ ] wartosc domyslna.
+
+
+ZESTAW GRY I ROM-Y
+------------------
+
+ZESTAW | SET=nazwa   [vastar]
+  Zestaw z MAME: vastar, vastar2, vastar3, vastar4, pprobe (Planet
+  Probe). Pliki ROM sa dopasowywane po sumie CRC i rozmiarze, w zipie
+  takze po nazwie. Zestawy-klony (vastar2..4) szukaja tez zipa rodzica.
+
+ROMPATH=katalog   (do 4 razy)
+  Miejsca przeszukiwane przed PROGDIR:, PROGDIR:rom, PROGDIR:roms.
+  W kazdym: SET.zip, rodzic.zip, szuflada SET i luzne pliki.
+
+
+OBRAZ
+-----
+
+SCALE=1|2|3   [2; ikona: 1]
+  Powiekszenie 224x256: 1x, 2x, 3x (piksel powielany).
+
+SCREEN=WINDOW|FULL   [WINDOW]
+  FULL: wlasny ekran w najmniejszym dostepnym trybie, ktory miesci
+  obraz (bez przeplotu; glebia 15/16 bit przed 24/32 przed 8), okno bez
+  ramki i bez tytulu, obraz wysrodkowany, bez wskaznika myszy.
+
+VIDEO=BLIT|WPA|WCP   [16/8 bit: BLIT, 32 bit: WPA, bez P96: WCP]
+  BLIT: zmienione bloki 8x8 przeliczane na format ekranu w malym buforze
+        w Fast RAM (jeden wiersz blokow), kopiowane do bitmapy na karcie
+        wylacznie zapisami (dlugie slowa), potem jeden BltBitMapRastPort
+        prostokata wokol zmian (na 8/16 bit robi go karta).
+  WPA:  ramka w Fast RAM w formacie ekranu, p96WritePixelArray.
+  WCP:  WriteChunkyPixels z piorami (gdy nie ma Picasso96).
+  NORTG = VIDEO=WCP.
+
+FRAMESKIP=AUTO|n   [AUTO]
+  Emulacja zawsze 60,606 Hz. AUTO: obraz klatki jest pomijany, gdy
+  poprzednia skonczyla sie spozniona o wiecej niz 1/3 klatki (najwyzej
+  3 pod rzad). n: rysowana co (n+1). klatka; FRAMESKIP=0 = kazda.
+
+MOVE16=ON   (test)
+  Kopiowanie do karty instrukcja MOVE16 z wczesniejszym CacheClearE
+  (MOVE16 na 68060 czyta pamiec z pominieciem cache copyback - bez
+  oprozniania kopiuje stare dane). Zysk znikomy.
+
+
+DZWIEK
+------
+
+SOUND=PAULA|AHI   [PAULA]
+  PAULA: audio.device, 8 bit, 22050 Hz, kanal lewy i prawy, 3 bufory.
+  AHI: AHI_AllocAudio, 16 bit, 22050 Hz, dwa bufory na zmiane
+  (AHI miksuje programowo: ok. 5% 68060/50). Gdy wybrany nie jest
+  dostepny (kanaly zajete, brak AHI), brany jest drugi.
+
+NOSOUND
+  Bez dzwieku; AY nie jest wtedy liczony.
+
+
+GRA
+---
+
+LIVES=1..9 | LIVES=INFINITE   [z DIP: 3]
+  Poza oryginalem. W kazdej klatce wpisywane do RAM wspolnego:
+    F101 = ustawienie zyc, ktore gra czyta przy starcie partii,
+    F110 = zycia w zapasie (INFINITE: nie spada ponizej 2).
+  (znalezione porownaniem RAM gier z 3 i 6 zyciami). Powyzej 9 ikony
+  zyc nie mieszcza sie w dolnym wierszu. Tylko zestawy vastar*.
+
+COINS   [bez: Free Play]
+  Domyslnie DSW2 bity 0-2 = 000 (Coin A: Free Play, gra pokazuje
+  CREDIT (99)), a ogien joysticka wciska tez START1. COINS: DSW2 bez
+  zmian, monety klawiszem 5/6.
+
+JOYSTART=OFF   [wlaczone]
+  Domyslnie joystick w lewo/prawo ustawia tez bit START1/START2 w porcie
+  SYSTEM (Vastar.joy_start). Gra ignoruje start w trakcie partii
+  (sprawdzone na PC).
+
+P2=SEPARATE   [gracz 2 = gracz 1]
+  Automat czyta w turze gracza 2 osobny port P2 (8000 drugiego Z80).
+  Domyslnie trafiaja tam tez wejscia gracza 1 (Vastar.p2_from_p1).
+  P2=SEPARATE: tylko wlasne P2 (w porcie nic go nie zasila).
+
+JOYPORT=BOTH
+  ReadJoyPort() takze dla portu 0 (port myszy; mysz pomijana).
+  Port czytany raz na klatke (ReadJoyPort jest wolne).
+
+DSW1=hh  DSW2=hh   [BF, FF]
+  Przelaczniki DIP (porty A/B ukladu AY), jak w MAME.
+  DSW1: bity 0-1 zycia (11=3, 10=4, 01=5, 00=6), bit 2 nieznany,
+        bit 3 = 0: autorzy, bit 4 = 0: spowolnienie (oszustwo),
+        bit 5: premia (1 = 20000/50000, 0 = 40000/70000),
+        bit 6: 0 automat stojacy, 1 stolowy (odwrocony ekran gracza 2),
+        bit 7 = 0: zatrzymanie gry.
+  DSW2: bity 0-2 Coin A, bity 3-5 Coin B (tabela w MAME vastar.cpp).
+  Free Play nadpisuje bity 0-2 DSW2.
+
+
+POMIARY I TESTY
+---------------
+
+STATS | STATS=FULL
+  Tytul okna co 2 s. STATS: "Vastar 60.6 fps (drawn 60) CPU 73% Paula"
+    fps     klatki emulacji na sekunde (ma byc 60,6)
+    drawn   narysowane obrazy na sekunde
+    CPU     zajetosc procesora przez gre
+  STATS=FULL dodatkowo, w procentach czasu:
+    emu         oba Z80 + AY
+    video       renderer: t sprawdzenie RAM kafelkow, m wyznaczenie
+                blokow, l skladanie blokow i wierszy, s sprite'y
+    present(x)  wyslanie do okna trybem x: c lista blokow,
+                w przeliczenie i zapis do karty, b blit
+    blocks      zmienione bloki 8x8 na klatke (z 896)
+  Na pelnym ekranie tytul nie jest widoczny (czyta go AmiAgent).
+
+VERIFY   (test)
+  Co 30 narysowanych klatek odczyt okna z karty (p96ReadPixelArray) i
+  porownanie kazdego bloku z tym, co powinno byc widac; wynik w tytule.
+
+Strazniki: gdy przez 3 s nie ma nowej klatki, stan programu (stos,
+segmenty, PC obu Z80) trafia do RAM:Vastar-hang.txt.
+
+Programy testowe (budowane razem z gra, make -f Makefile.amiga):
+  Lockstep ROMDIR [n]   rdzen Z80 asm kontra C, instrukcja po instrukcji
+  VideoTest ROMDIR [n]  renderer kontra renderer wzorcowy, co klatke
+  Z80Test PLIK          prelim / zexdoc / zexall z rdzeniem asm
+
+
+WERSJA NA PC (SDL2)
+-------------------
+
+  vastar [opcje] [ZESTAW | PLIK.zip]
+  -rompath DIR      dodatkowe miejsce z ROM-ami (domyslnie ., roms, rom,
+                    obok programu i ../../rom)
+  -scale N          powiekszenie okna [3]
+  -dsw1 HH -dsw2 HH przelaczniki DIP
+  -freeplay         Free Play, ogien pada startuje gre
+  -joystart         lewo/prawo = start 1/2 graczy
+  -lives N|inf      zycia na start / bez konca
+  -p2separate       osobne sterowanie gracza 2
+  -nosound
+  -headless -fast   bez okna i dzwieku / bez tempa 60 Hz
+  -frames N         koniec po N klatkach
+  -shots DIR F1,F2  zrzuty BMP w podanych klatkach
+  -wav PLIK         zapis dzwieku
+  -script LISTA     wejscia w czasie, np. "1200:+coin1,1206:-coin1"
+                    (left right up down b1 b2 coin1 coin2 service
+                    start1 start2)
+  -check-render     renderer szybki kontra wzorcowy w kazdej klatce
+  -stats            czas klatki, bloki, przerysowane kafelki
+  Na PC domyslnie zachowanie automatu (monety, start tylko klawiszami).

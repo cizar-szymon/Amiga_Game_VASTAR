@@ -30,7 +30,7 @@ albo rozpakowane pliki).
 | `port/src` | emulator: Z80 w C (`z80.c`) i w asemblerze 68k (`z80_68k.s`, generowany przez `tools/gen_z80_68k.py`), AY-3-8910, model automatu, renderer (C + `video_68k.s`), wczytywanie ROM-ów z zipów MAME, nakładki `main_sdl.c` (PC) i `main_amiga.c` (Amiga) |
 | `port/tests` | testy: instrukcje Z80 (zexdoc/zexall), lockstep rdzenia asm z rdzeniem C, renderer kontra renderer wzorcowy, profil |
 | `port/amiga` | ikona i opis parametrów dla Amigi |
-| `releases/amiga` | gotowa paczka na Amigę: `Vastar`, `Vastar.info`, `Vastar.txt` (bez ROM-ów) |
+| `releases/amiga` | gotowa paczka na Amigę: `Vastar`, `Vastar.info`, `Vastar.txt` (dla graczy), `Vastar_dev.txt` (dla programistów), bez ROM-ów |
 | `docs/PORTING.md` | **pełny opis portu**: architektura, pamięć, renderer, rdzeń asm, pomiary, opcje |
 | `docs/Warp RTG Developer notes.pdf` | zasady pracy z VRAM na Warpie (zastosowane w porcie) |
 | `rtl`, `sys`, `releases/*.rbf`, `*.mra` | oryginalny rdzeń MiSTer (opis: `docs/README_MiSTer.md`) |
@@ -44,9 +44,10 @@ albo rozpakowane pliki).
 
 Domyślnie: okno na Workbenchu, dźwięk przez Paulę, Free Play (bez monet), joystick
 w lewo / w prawo = start 1 / 2 graczy, gracz 2 gra tym samym joystickiem.
-Opis wszystkich parametrów: [`port/amiga/Vastar.txt`](port/amiga/Vastar.txt)
-(`SCALE`, `SCREEN=FULL`, `LIVES=1..9|INFINITE`, `COINS`, `JOYSTART=OFF`,
-`JOYPORT=BOTH`, `SOUND=PAULA|AHI`, `FRAMESKIP`, `STATS`, ...).
+Opisy parametrów: dla graczy [`port/amiga/Vastar.txt`](port/amiga/Vastar.txt)
+(najważniejsze: `SCALE`, `SCREEN=FULL`, `LIVES`, `COINS`, `JOYSTART=OFF`, ...),
+dla programistów [`port/amiga/Vastar_dev.txt`](port/amiga/Vastar_dev.txt)
+(wszystkie parametry, tryby obrazu i dźwięku, pomiary `STATS`, testy, wersja PC).
 
 Wymagania: AmigaOS 3.1+, 68060 (budowane dla 68060), Picasso96 zalecane.
 
