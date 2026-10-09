@@ -1,0 +1,162 @@
+VASTAR - automat Orca (1983) na Amige
+=====================================
+
+Emulator automatu Vastar: dwa procesory Z80, uklad dzwiekowy AY-3-8910
+i grafika automatu, liczone przez 68060. Gra dziala w oknie na Workbenchu
+albo na wlasnym ekranie (SCREEN=FULL).
+
+Wymagania: AmigaOS 3.1+, 68020+ (zalecany 68060), karta graficzna z
+Picasso96 (bez niej obraz idzie wolniejsza droga przez WriteChunkyPixels).
+68060/50 MHz: gra w pelnym tempie, czesc klatek obrazu jest pomijana.
+68060/100 MHz: gra w pelnym tempie z kazda klatka (SCALE=1).
+
+
+PLIKI
+-----
+
+  Vastar          program
+  Vastar.info     ikona (Tool Types = parametry opisane nizej)
+  Vastar.txt      ten opis
+  rom/            pliki ROM automatu (nie sa dolaczone do programu)
+
+ROM-y sa szukane po kolei w: ROMPATH=..., PROGDIR:, PROGDIR:rom,
+PROGDIR:roms. Moga to byc: vastar.zip z MAME, szuflada "vastar" albo
+luzne pliki (e_f4.rom ... tbp24s10.8n). Brak ROM-ow = okienko z bledem.
+
+
+URUCHAMIANIE
+------------
+
+Z Workbencha: dwuklik na ikonie. Parametry ustawia sie w Tool Types
+(ikona -> Informacje). Wpis w nawiasach jest wylaczony: zeby go wlaczyc,
+usun nawiasy, np. (SCREEN=FULL) -> SCREEN=FULL.
+
+Z Shella:  Vastar [ZESTAW] [PARAMETR] [PARAMETR] ...
+
+  Przyklady:
+    Vastar
+    Vastar SCALE=2
+    Vastar SCREEN=FULL SCALE=2 LIVES=9
+    Vastar vastar2 COINS
+
+
+STEROWANIE
+----------
+
+  Klawiatura                      Joystick (port joysticka)
+  ----------                      ------------------------
+  strzalki        ruch            drazek        ruch
+  Ctrl, Spacja, Z ogien           ogien         ogien / start 1 gracza
+  Alt, X          tarcza          2. przycisk   tarcza
+  1               start 1 gracza  w lewo        start 1 gracza *
+  2               start 2 graczy  w prawo       start 2 graczy *
+  5 / 6           moneta (COINS)
+  9               serwis
+  P               pauza
+  F3              reset automatu
+  Esc             wyjscie (takze gadzet zamykania okna lub Ctrl-C)
+
+  * tylko na ekranie tytulowym; w trakcie gry lewo/prawo to zwykly ruch
+
+  Pad CD32: czerwony = ogien, niebieski = tarcza, Play = start 1 gracza,
+  zielony = moneta, zolty = start 2 graczy.
+
+Gra na dwoch graczy jest na zmiane: gracz 2 gra tym samym joystickiem
+i klawiszami co gracz 1.
+
+
+PARAMETRY
+---------
+
+Wielkosc liter nie ma znaczenia. W nawiasach kwadratowych wartosc
+domyslna.
+
+ZESTAW
+  Wersja gry z MAME: vastar [domyslnie], vastar2, vastar3, vastar4,
+  pprobe (Planet Probe - inna gra na tym samym automacie). Mozna tez
+  SET=nazwa.
+
+ROMPATH=katalog
+  Dodatkowe miejsce z ROM-ami, np. ROMPATH=Work:roms (do 4 razy).
+
+SCALE=1|2|3   [2 z Shella, 1 w ikonie]
+  Powiekszenie obrazu 224x256: 1 = 224x256, 2 = 448x512, 3 = 672x768.
+  Wieksza skala to wiecej pracy dla karty graficznej.
+
+SCREEN=WINDOW|FULL   [WINDOW]
+  WINDOW: okno na Workbenchu.
+  FULL: wlasny ekran w najmniejszym trybie karty, ktory miesci obraz
+  (np. 640x512 przy SCALE=2), obraz na srodku, bez wskaznika myszy.
+
+FRAMESKIP=AUTO|n   [AUTO]
+  Gra zawsze liczy 60,6 klatki na sekunde. AUTO: gdy Amiga nie nadaza,
+  obraz niektorych klatek jest pomijany (najwyzej 3 pod rzad).
+  n: stale rysowana co (n+1). klatka, FRAMESKIP=0 = kazda klatka.
+
+SOUND=PAULA|AHI   [PAULA]
+  PAULA: dzwiek przez uklad Amigi (najmniej pracy dla procesora).
+  AHI: przez ahi.device (tryb wybrany w preferencjach AHI).
+  Gdy wybrany sposob nie jest dostepny, gra bierze drugi.
+
+NOSOUND
+  Bez dzwieku (troche szybciej).
+
+LIVES=1..9 | LIVES=INFINITE   [z przelacznikow DIP: 3]
+  Liczba zyc na start gry (automat pozwala tylko na 3 do 6).
+  INFINITE: zycia sie nie koncza. Tylko Vastar (nie Planet Probe).
+
+COINS
+  Monety jak w automacie (klawisz 5 / 6, potem start). Bez tego
+  parametru jest Free Play: stale CREDIT (99), start bez monet.
+
+JOYSTART=OFF
+  Joystick w lewo / w prawo nie startuje gry (zostaja klawisze 1 i 2,
+  ogien i przyciski pada CD32).
+
+JOYPORT=BOTH
+  Joystick dziala tez w porcie myszy (myszka jest tam pomijana).
+
+P2=SEPARATE
+  Gracz 2 tylko z wlasnym sterowaniem jak w automacie (drugi joystick
+  automatu - tu go nie ma, wiec gracz 2 nie moglby grac). Tylko do
+  testow.
+
+DSW1=hh  DSW2=hh
+  Przelaczniki DIP automatu, szesnastkowo (jak w MAME). Domyslnie
+  DSW1=BF, DSW2=FF (Free Play zmienia DSW2).
+  DSW1: bity 0-1 zycia (11=3, 10=4, 01=5, 00=6), bit 5 premia
+        (1 = 20000/50000, 0 = 40000/70000), bit 6 automat stojacy (0)
+        lub stolowy (1), bit 3 = 0: autorzy na ekranie, bit 4 = 0:
+        spowolnienie (oszustwo), bit 7 = 0: zatrzymanie gry.
+  DSW2: bity 0-2 monety A, bity 3-5 monety B.
+
+VIDEO=BLIT|WPA|WCP   [wybierany sam]
+  Sposob wysylania obrazu do okna. BLIT (ekrany 8 i 16 bit): zapis do
+  pamieci karty i blit; WPA (32 bit): p96WritePixelArray; WCP: bez
+  Picasso96, WriteChunkyPixels. NORTG = VIDEO=WCP.
+
+STATS
+  W tytule okna: klatki na sekunde gry, ile obrazow narysowano, zajetosc
+  procesora i rodzaj dzwieku. STATS=FULL: dodatkowo czasy czesci.
+  Na pelnym ekranie tytul nie jest widoczny.
+
+VERIFY
+  Test: co 30 klatek odczytuje obraz z karty i porownuje z tym, co
+  powinno byc widac (wynik w tytule razem ze STATS).
+
+MOVE16=ON
+  Test: kopiowanie do karty instrukcja MOVE16 (zwykle bez zysku).
+
+
+GDY COS NIE DZIALA
+------------------
+
+- "Cannot load the ROMs": brak ROM-ow w rom/ albo zle sumy kontrolne
+  (potrzebny zestaw ROM-ow zgodny z MAME).
+- Zacina sie dzwiek albo gra jest za wolna: SCALE=1, SOUND=PAULA,
+  NOSOUND.
+- Za maly ekran przy SCREEN=FULL: mniejsza SCALE.
+- Zawieszenie: opis stanu programu trafia do RAM:Vastar-hang.txt.
+
+Port: program w C i asemblerze 68k; kod i opis techniczny w projekcie
+na PC (docs/PORTING.md).
