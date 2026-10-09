@@ -88,6 +88,10 @@ typedef struct Vastar {
        second set of controls for player 2 (P2). On by default (vastar_init). */
     uint8_t p2_from_p1;
 
+    /* joystick left / right also press start 1 / start 2 player (the game ignores
+       the start buttons during a game); off by default */
+    uint8_t joy_start;
+
     Z80 main, sub;
     AY8910 ay;
 

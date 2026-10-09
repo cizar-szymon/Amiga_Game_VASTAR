@@ -8,10 +8,13 @@
  *
  * Shell:  Vastar [SET] [SCALE=1|2|3] [ROMPATH=dir] [NOSOUND] [SOUND=PAULA|AHI]
  *                [VIDEO=BLIT|WPA|WCP] [FRAMESKIP=AUTO|n] [SCREEN=WINDOW|FULL] [LIVES=1..9|INFINITE]
- *                [FREEPLAY] [JOYPORT=BOTH] [DSW1=hh] [DSW2=hh] [STATS|STATS=FULL]
+ *                [COINS] [JOYSTART=OFF] [JOYPORT=BOTH] [P2=SEPARATE] [DSW1=hh] [DSW2=hh]
+ *                [STATS|STATS=FULL]
  *         SCREEN=FULL: an own screen (mode of the graphics card), picture centred
  *         LIVES: lives at the start of a game (the DIP switches allow 3 to 6), INFINITE
- *         FREEPLAY: no coins needed, the joystick's fire button starts a game
+ *         by default free play (no coins, credits always 99) and the joystick starts
+ *         a game: left = 1 player, right = 2 players, fire = 1 player;
+ *         COINS: coins as in the arcade (key 5), JOYSTART=OFF: only keys 1 / 2 start
  *         JOYPORT=BOTH: a joystick in the mouse port works too
  *         player 2 (the game alternates) plays with the same joystick and keys;
  *         P2=SEPARATE: only with the arcade's own P2 controls (none here)
@@ -114,7 +117,10 @@ static const char *rompaths[4];
 static int nrompaths;
 static int dsw1 = -1, dsw2 = -1;
 static int lives, infinite_lives;     /* LIVES=1..9 | INFINITE (not in the original) */
-static int freeplay;                  /* FREEPLAY: no coins; fire starts a game */
+static int freeplay = 1;              /* free play (default): no coins, fire starts a game;
+                                         COINS: coins as in the arcade */
+static int joystart = 1;              /* joystick left / right start a 1 / 2 player game;
+                                         JOYSTART=OFF */
 static int p2separate;                /* P2=SEPARATE: player 2 needs the arcade's P2 controls */
 static int joy_mouseport;             /* JOYPORT=BOTH: also a joystick in the mouse port */
 static int screen_full;               /* SCREEN=FULL: an own screen instead of a window */
@@ -1388,6 +1394,12 @@ static void parse_option(const char *opt)
         lives = atoi(val);
     else if (same_text(opt, "FREEPLAY"))
         freeplay = 1;
+    else if (same_text(opt, "COINS"))
+        freeplay = 0;
+    else if (same_text(opt, "JOYSTART=OFF"))
+        joystart = 0;
+    else if (same_text(opt, "JOYSTART"))
+        joystart = 1;
     else if (same_text(opt, "P2=SEPARATE"))
         p2separate = 1;
     else if (same_text(opt, "JOYPORT=BOTH"))
@@ -1561,6 +1573,7 @@ int main(int argc, char **argv)
     machine.lives = (uint8_t)(lives > 0 ? lives : 0);
     machine.infinite_lives = (uint8_t)infinite_lives;
     machine.p2_from_p1 = (uint8_t)!p2separate;   /* by default player 2 uses the same joystick */
+    machine.joy_start = (uint8_t)joystart;
     video_init(&video, &machine);
 
     open_window();

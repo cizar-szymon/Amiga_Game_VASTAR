@@ -280,7 +280,9 @@ int vastar_run_frame(Vastar *m, int16_t *audio)
     /* the inputs as the sub CPU reads them */
     m->smem[0x8000] = (uint8_t)(m->in_p2 | (m->p2_from_p1 ? m->in_p1 : 0));
     m->smem[0x8040] = m->in_p1;
-    m->smem[0x8080] = m->in_system;
+    m->smem[0x8080] = (uint8_t)(m->in_system |
+                                (m->joy_start && (m->in_p1 & IN_LEFT) ? IN_START1 : 0) |
+                                (m->joy_start && (m->in_p1 & IN_RIGHT) ? IN_START2 : 0));
     for (slice = 0; slice < VASTAR_LINES / SLICE_LINES; slice++) {
         int line = (VBLANK_LINE + slice * SLICE_LINES) % VASTAR_LINES;
         int n;
