@@ -1,78 +1,20 @@
 #!/usr/bin/env python3
-"""Build the Workbench icon of the Amiga port from the game's own sprites.
+"""Build the Workbench icon of the Vastar Amiga port from a frame of the game.
 
-  python tools/make_icon.py OUT.info [--preview OUT.png] [--tooltypes "SCALE=2" ...]
+  python tools/make_icon.py OUT.info --frame build/shots/frame_001600.bmp --crop X Y W H
+                            [--preview OUT.png] [--tooltypes "SCALE=1" "(STATS)" ...]
 
-The icon has a classic 4 colour image (any Workbench) and an OS 3.5+
-ColorIcon (FORM ICON with FACE and IMAG chunks, RLE compressed) with the
-C64 colours, which AmigaOS 3.2 shows.
+The frame comes from the PC version (vastar -headless -shots DIR N plus a -script that
+starts a game). The icon has a classic 4 colour image (any Workbench) and an OS 3.5+
+ColorIcon (FORM ICON with FACE and IMAG chunks, RLE compressed) with the game's colours,
+which AmigaOS 3.2 shows. Based on the Wizard of Wor port's icon tool.
 """
 
 import argparse
-import os
 import struct
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-SPRITES = os.path.join(HERE, "..", "build", "gfx", "c64_sprites.bin")
+from PIL import Image
 
-C64 = [0x000000, 0xFFFFFF, 0x96282E, 0x5BD6CE, 0x9F2DAD, 0x41B936, 0x2724C4, 0xEFF347,
-       0x9F4815, 0x5E3500, 0xDA5F66, 0x474747, 0x787878, 0x91FF84, 0x6864FF, 0xAEAEAE]
-BLACK, WHITE, RED, YELLOW, BLUE, LBLUE, LRED, ORANGE = 0, 1, 2, 7, 6, 14, 10, 8
-
-W, H = 64, 50
-
-
-def sprite(code):
-    data = open(SPRITES, "rb").read()
-    off = (code - 0x80) * 64
-    rows = []
-    for y in range(21):
-        b = data[off + y * 3:off + y * 3 + 3]
-        bits = (b[0] << 16) | (b[1] << 8) | b[2]
-        rows.append([(bits >> (23 - x)) & 1 for x in range(24)])
-    return rows
-
-
-def picture():
-    img = [[BLACK] * W for _ in range(H)]
-
-    def hline(x0, x1, y, c=BLUE):
-        for x in range(x0, x1):
-            for t in (0, 1):
-                img[y + t][x] = c
-
-    def vline(x, y0, y1, c=BLUE):
-        for y in range(y0, y1):
-            for t in (0, 1):
-                img[y][x + t] = c
-
-    def put(code, x0, y0, c, flip=False):
-        for y, row in enumerate(sprite(code)):
-            for x, v in enumerate(row):
-                if v:
-                    xx = x0 + (23 - x if flip else x)
-                    if 0 <= xx < W and 0 <= y0 + y < H:
-                        img[y0 + y][xx] = c
-
-    # a corner of a dungeon: outer walls with the side door, two inner walls
-    hline(2, 62, 1)
-    hline(2, 62, 47)
-    vline(1, 1, 18)
-    vline(1, 30, 49)
-    vline(61, 1, 18)
-    vline(61, 30, 49)
-    img[22][0] = img[23][0] = img[24][0] = RED      # the door arrows
-    img[22][63] = img[23][63] = img[24][63] = RED
-    hline(40, 60, 33)
-    vline(49, 33, 47)
-
-    put(0xA8, 37, 5, YELLOW)                         # the Worluk
-    put(0x85, 5, 4, LBLUE)                           # a Burwor
-    put(0xBA, 5, 25, YELLOW)                         # the Worrior, firing to the right
-    return img
-
-
-# ------------------------------------------------------------------ icon file
 
 def rle_pack(values, depth):
     """ColorIcon RLE: ILBM byterun1 on a bit stream of `depth` bit values"""
@@ -114,11 +56,11 @@ def chunk(name, data):
     return name + struct.pack(">I", len(data)) + data + pad
 
 
-def color_icon(img, colors):
+def color_icon(idx, w, h, colors):
     depth = max(1, (len(colors) - 1).bit_length())
-    pixels = rle_pack([c for row in img for c in row], depth)
-    palette = b"".join(struct.pack(">BBB", (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255) for rgb in colors)
-    face = struct.pack(">BBBBH", W - 1, H - 1, 0, 0x11, len(palette) - 1)
+    pixels = rle_pack(idx, depth)
+    palette = b"".join(struct.pack(">BBB", *c) for c in colors)
+    face = struct.pack(">BBBBH", w - 1, h - 1, 0, 0x11, len(palette) - 1)
     imag = struct.pack(">BBBBBBHH", 0, len(colors) - 1, 0x02, 1, 0, depth, len(pixels) - 1,
                        len(palette) - 1) + pixels + palette
     body = b"ICON" + chunk(b"FACE", face) + chunk(b"IMAG", imag)
@@ -126,27 +68,23 @@ def color_icon(img, colors):
 
 
 # the default Workbench 3.x colours: grey, black, white, blue
-WB4 = [0xAAAAAA, 0x000000, 0xFFFFFF, 0x6688BB]
+WB4 = [(0xAA, 0xAA, 0xAA), (0x00, 0x00, 0x00), (0xFF, 0xFF, 0xFF), (0x66, 0x88, 0xBB)]
 
 
-def nearest_wb(rgb):
-    r, g, b = (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255
-    best = min(range(4), key=lambda i: (r - (WB4[i] >> 16 & 255)) ** 2 + (g - (WB4[i] >> 8 & 255)) ** 2 +
-               (b - (WB4[i] & 255)) ** 2)
-    return best
+def nearest_wb(c):
+    return min(range(4), key=lambda i: sum((c[k] - WB4[i][k]) ** 2 for k in range(3)))
 
 
-def planar(img):
-    """the classic 2 bitplane image; black stays black, the figures white, walls blue"""
-    m = {BLACK: 1, BLUE: 3, LBLUE: 3, YELLOW: 2, RED: 2}
-    words = (W + 15) // 16
+def planar(rgb, w, h):
+    """the classic 2 bitplane image in the 4 Workbench colours"""
+    words = (w + 15) // 16
     planes = []
     for p in range(2):
         data = bytearray()
-        for row in img:
+        for y in range(h):
             bits = 0
             for x in range(words * 16):
-                v = m.get(row[x], nearest_wb(C64[row[x]])) if x < W else 0
+                v = nearest_wb(rgb[y * w + x]) if x < w else 0
                 bits = (bits << 1) | ((v >> p) & 1)
             data += bits.to_bytes(words * 2, "big")
         planes.append(bytes(data))
@@ -161,32 +99,35 @@ def tool_types(types):
     return out
 
 
-def disk_object(img, types):
-    gadget = struct.pack(">IhhhhHHHIIIIIHI", 0, 0, 0, W, H + 1, 0x0004, 0x0003, 0x0001,
+def disk_object(rgb, w, h, types):
+    gadget = struct.pack(">IhhhhHHHIIIIIHI", 0, 0, 0, w, h + 1, 0x0004, 0x0003, 0x0001,
                          1, 0, 0, 0, 0, 0, 1)
     head = struct.pack(">HH", 0xE310, 1) + gadget + struct.pack(
         ">BBIIiiIII", 3, 0, 0, 1 if types else 0, -0x80000000, -0x80000000, 0, 0, 16384)
-    image = struct.pack(">hhhhhIBBI", 0, 0, W, H, 2, 1, 3, 0, 0) + planar(img)
-    colors = sorted(set(c for row in img for c in row))
+    image = struct.pack(">hhhhhIBBI", 0, 0, w, h, 2, 1, 3, 0, 0) + planar(rgb, w, h)
+    colors = sorted(set(rgb))
+    if len(colors) > 256:
+        raise SystemExit("more than 256 colours")
     remap = {c: i for i, c in enumerate(colors)}
-    cimg = [[remap[c] for c in row] for row in img]
-    return head + image + (tool_types(types) if types else b"") + color_icon(cimg, [C64[c] for c in colors])
+    return head + image + (tool_types(types) if types else b"") + \
+        color_icon([remap[c] for c in rgb], w, h, colors)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
+    ap.add_argument("--frame", required=True, help="BMP/PNG frame of the game")
+    ap.add_argument("--crop", nargs=4, type=int, required=True, metavar=("X", "Y", "W", "H"))
     ap.add_argument("--preview")
     ap.add_argument("--tooltypes", nargs="*", default=[])
     args = ap.parse_args()
-    img = picture()
-    open(args.out, "wb").write(disk_object(img, args.tooltypes))
+    x, y, w, h = args.crop
+    img = Image.open(args.frame).convert("RGB").crop((x, y, x + w, y + h))
+    rgb = list(img.getdata())
+    open(args.out, "wb").write(disk_object(rgb, w, h, args.tooltypes))
     if args.preview:
-        from PIL import Image
-        p = Image.new("RGB", (W, H))
-        p.putdata([((C64[c] >> 16) & 255, (C64[c] >> 8) & 255, C64[c] & 255) for row in img for c in row])
-        p.resize((W * 6, H * 6), Image.NEAREST).save(args.preview)
-    print(f"{args.out}: {W}x{H}")
+        img.resize((w * 6, h * 6), Image.NEAREST).save(args.preview)
+    print(f"{args.out}: {w}x{h}, {len(set(rgb))} colours, tool types {args.tooltypes}")
 
 
 if __name__ == "__main__":

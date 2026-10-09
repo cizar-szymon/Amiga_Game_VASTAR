@@ -3,10 +3,10 @@
  *
  * Built on the Wizard of Wor Amiga frontend: Intuition window, Picasso96 (BLIT or
  * WPA) or WriteChunkyPixels for the picture, timer.device for the 60.606 Hz pace,
- * lowlevel.library for the joystick, the AHI library or audio.device (Paula).
+ * lowlevel.library for the joystick, audio.device (Paula, default) or the AHI library.
  * Needs AmigaOS 3.1+ (V40) and a 68020+ (built for the 68060); AHI is optional.
  *
- * Shell:  Vastar [SET] [SCALE=1|2|3] [ROMPATH=dir] [NOSOUND] [SOUND=AHI|PAULA]
+ * Shell:  Vastar [SET] [SCALE=1|2|3] [ROMPATH=dir] [NOSOUND] [SOUND=PAULA|AHI]
  *                [VIDEO=BLIT|WPA|WCP] [FRAMESKIP=AUTO|n] [DSW1=hh] [DSW2=hh] [STATS|STATS=FULL]
  *         FRAMESKIP: the game always runs at 60.6 Hz; AUTO (default) leaves out pictures
  *         when the Amiga falls behind, n draws one picture of n+1
@@ -797,8 +797,9 @@ static uint64_t eclock_now(void)
     return ((uint64_t)ev.ev_hi << 32) | ev.ev_lo;
 }
 
-/* wait until the next arcade frame (60.606 Hz) is due; returns 0 if it is already
-   overdue (no time to wait) */
+/* wait until the next arcade frame (60.606 Hz) is due; returns 0 if it is overdue by
+   more than a third of a frame (a little lateness evens out by itself and is no
+   reason to leave out pictures) */
 static int pace(void)
 {
     const uint64_t period = (uint64_t)eclock_freq * 1000 / VASTAR_FPS_X1000;
@@ -817,7 +818,7 @@ static int pace(void)
         }
         return 1;
     }
-    return 0;
+    return now - next_frame <= period / 3;
 }
 
 /* ------------------------------------------------------------------ sound */
@@ -844,7 +845,7 @@ static int16_t snd_ring[SND_RING];
 static ULONG ring_r, ring_w;
 enum { SND_NONE, SND_AHI, SND_PAULA };
 static const char *const sound_names[] = { "no sound", "AHI", "Paula" };
-static int sound_request = -1;
+static int sound_request = SND_PAULA;   /* Paula: no mixing on the CPU; SOUND=AHI */
 static int sound_mode = SND_NONE;
 
 static ULONG sound_func(__reg("a0") struct Hook *hook, __reg("a2") struct AHIAudioCtrl *ac,
@@ -1041,19 +1042,27 @@ static void paula_push(void)
     }
 }
 
+/* the chosen one first (Paula by default: AHI mixes in software, which costs about 5%
+   of a 68060/50), the other one if it cannot be had (channels in use, no AHI) */
 static void open_sound(void)
 {
-    if (sound_request != SND_PAULA) {
+    if (sound_request == SND_AHI) {
         open_ahi();
         if (actrl) {
             sound_mode = SND_AHI;
             return;
         }
     }
-    if (open_paula())
+    if (open_paula()) {
         sound_mode = SND_PAULA;
-    else
-        close_paula();
+        return;
+    }
+    close_paula();
+    if (sound_request != SND_AHI) {
+        open_ahi();
+        if (actrl)
+            sound_mode = SND_AHI;
+    }
 }
 
 static void close_sound(void)

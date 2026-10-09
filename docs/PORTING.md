@@ -86,13 +86,15 @@ Opcje testowe: `-headless -frames N -shots KATALOG 100,200 -wav PLIK -script "12
 
 `src/z80_68k.s` generuje `python tools/gen_z80_68k.py` (Makefile robi to sam, gdy generator się zmieni).
 
-**Uruchamianie:** `Vastar [SET] [SCALE=1|2|3] [ROMPATH=dir] [NOSOUND] [SOUND=AHI|PAULA] [VIDEO=BLIT|WPA|WCP] [DSW1=hh] [DSW2=hh] [STATS|STATS=FULL]`, to samo jako Tool Types ikony. ROM-y: `SET.zip`, szuflada `SET` albo luźne pliki w `ROMPATH`, `PROGDIR:`, `PROGDIR:rom`, `PROGDIR:roms`. Sterowanie jak na PC (strzałki, Ctrl/Spacja/Z ogień, Alt/X przycisk 2, 5 moneta, 1/2 start, P pauza, F3 reset, Esc) plus joystick w porcie 2 (CD32: niebieski = przycisk 2, Play = start).
+**Uruchamianie:** `Vastar [SET] [SCALE=1|2|3] [ROMPATH=dir] [NOSOUND] [SOUND=PAULA|AHI] [VIDEO=BLIT|WPA|WCP] [FRAMESKIP=AUTO|n] [DSW1=hh] [DSW2=hh] [STATS|STATS=FULL]`, to samo jako Tool Types ikony. Dźwięk domyślnie przez Paulę (AHI miksuje programowo, ok. 5% procesora 68060/50); gdy kanały Pauli są zajęte, gra bierze AHI.
+
+**Ikona** (`port/amiga/Vastar.info`, kopiowana przez Makefile do `build/amiga`): 52×42 z kadru gry (robot z klatki 1600 wersji PC), obraz 4-kolorowy dla każdego Workbencha i ColorIcon OS 3.5+ w 10 kolorach gry. Tool Types: `SCALE=1`, wyłączone `(SCALE=2)`, `(SOUND=AHI)`, `(NOSOUND)`, `(FRAMESKIP=AUTO)`, `(STATS)`, `(ROMPATH=Work:roms)`. Tworzy ją `python tools/make_icon.py OUT.info --frame KLATKA.bmp --crop 49 57 52 42 --tooltypes ...`. Sprawdzone na A1200: ikona widoczna w szufladzie, start z ikony (ARexx Workbencha `ICON ... OPEN`) otwiera grę w skali 1 z ROM-ami z `PROGDIR:rom`. ROM-y: `SET.zip`, szuflada `SET` albo luźne pliki w `ROMPATH`, `PROGDIR:`, `PROGDIR:rom`, `PROGDIR:roms`. Sterowanie jak na PC (strzałki, Ctrl/Spacja/Z ogień, Alt/X przycisk 2, 5 moneta, 1/2 start, P pauza, F3 reset, Esc) plus joystick w porcie 2 (CD32: niebieski = przycisk 2, Play = start).
 
 **`main_amiga.c`** (na wzór Wizard of Wor): okno Workbencha, obraz do okna tylko w zmienionych blokach 8×8 (P96 `BLIT`: zapis zmienionych bloków do bitmapy na karcie i jeden blit prostokąta wokół nich; `WPA`; bez P96 `WriteChunkyPixels`), AHI przez `AHI_AllocAudio` z dwoma buforami (Paula jako zapas), 22 050 Hz, tempo z `timer.device` (60,606 Hz), joystick czytany raz na klatkę, strażnik zawieszeń (`RAM:Vastar-hang.txt`).
 
 **Wysyłanie do karty (tryb `BLIT`, według „Warp RTG Developer notes”):** zmienione bloki wiersza bloków są przeliczane na format ekranu (`convert16` w asemblerze dla 16 bitów) do małego bufora w Fast RAM (jeden wiersz bloków: mieści się w pamięciach podręcznych; bufor całej klatki był wolniejszy, bo nie mieścił się w L2) i kopiowane do bitmapy na karcie wyłącznie zapisami (`copy_rows`: długie słowa; `MOVE16=ON` używa MOVE16, ale wtedy trzeba najpierw opróżnić pamięć podręczną danych, `CacheClearE`, bo MOVE16 czyta pamięć z pominięciem pamięci podręcznej w trybie copyback: bez tego robot zostawiał smugi). Potem jeden blit prostokąta wokół zmian (na 16 bitach robi go sprzęt Warpa). `VERIFY` co 30 klatek odczytuje okno z karty i porównuje każdy blok: 0 złych bloków.
 
-**Pomijanie klatek (`FRAMESKIP=AUTO`, domyślnie):** emulacja (logika gry i dźwięk) zawsze liczy 60,606 klatki na sekundę; gdy poprzednia klatka skończyła się za późno, obraz tej klatki nie jest składany ani wysyłany (najwyżej 3 pod rząd). `FRAMESKIP=n` rysuje stale co (n+1). klatkę. `STATS` pokazuje tempo gry i liczbę narysowanych obrazów na sekundę.
+**Pomijanie klatek (`FRAMESKIP=AUTO`, domyślnie):** emulacja (logika gry i dźwięk) zawsze liczy 60,606 klatki na sekundę; gdy poprzednia klatka skończyła się spóźniona o więcej niż 1/3 klatki, obraz tej klatki nie jest składany ani wysyłany (najwyżej 3 pod rząd; małe spóźnienia wyrównują się same). `FRAMESKIP=n` rysuje stale co (n+1). klatkę. `STATS` pokazuje tempo gry i liczbę narysowanych obrazów na sekundę.
 
 **Rdzeń Z80 w asemblerze (`z80_68k.s`):** HL, A, F, R i licznik cykli w rejestrach 68k (d3–d7), PC jako wskaźnik do pamięci (a4), pozostałe rejestry w strukturze `Z80` (wielki endian: pary BC/DE czytane jednym `move.w`). Każda instrukcja kończy się własnym `jmp` przez tablicę 256 adresów (osobne tablice CB, ED, DD, FD, DDCB/FDCB). Flagi S Z V C z rejestru CCR 68k po odpowiedniej instrukcji 68k (`move ccr` + tablica 16 wpisów), H oraz X/Y liczone. Przerwania sprawdzane tylko na granicach przebiegu (linie przerwań zmieniają się tylko między wywołaniami `z80_run`) i po EI/RETN, więc pętla instrukcji nie ma żadnych testów poza licznikiem cykli. Uproszczenie: brak rejestru WZ (MEMPTR), więc `BIT n,(HL)` daje X/Y = 0.
 
@@ -117,6 +119,15 @@ Po „Warp RTG Developer notes” (A1200, Paula; bez pomijania / z pomijaniem):
 | + przeliczanie i kopiowanie w asm przez mały bufor, porównanie w asm | 39,5 / 61 (15) | 32 / 50 (12–13) |
 | renderer bez bitmap warstw (mieści się w L2), porównanie w rendererze | 36,7 / 60,7 (15) | 31,3 / 48,5 (13) |
 | + składanie całymi wierszami bloków (`row-compose`) | **42,5 / 60,6 (18)**; z AHI 61 (15) | 33,6 / 54,7 (14) |
+
+**68060 na 100 MHz** (A1200 z Warp 1260, Paula; 9.10.2026):
+
+| | tempo gry | obrazów/s | CPU |
+|---|---|---|---|
+| `SCALE=1` (bez pomijania lub `AUTO`) | **60,6** | **60** | 73% |
+| `SCALE=2`, `FRAMESKIP=0` | 60,3 | 60 | 92% |
+| `SCALE=2`, `AUTO` | 60,5 | 45 | 85% |
+| `SCALE=3`, `AUTO` | 59,6 | 15 | 93% (wysyłanie do karty 54%) |
 
 Sam renderer mieszczący się w L2 nie przyspieszył: ogranicza go liczba instrukcji (ok. 500 bloków na klatkę, gdy przewija się tło, po 3 warstwy z obliczeniem kafelków dla każdego bloku), a nie pamięć. Zysk to ok. 250 KB mniej pamięci (bez bitmap warstw i bez kopii ekranu do porównań). Składanie wierszami usuwa większość powtarzanych obliczeń kafelków: składanie spada z ok. 11 do ok. 8,5 ms na klatkę.
 

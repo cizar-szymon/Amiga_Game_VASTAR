@@ -2,3 +2,4 @@
 *.rbf binary
 *.exe binary
 *.png binary
+*.info binary

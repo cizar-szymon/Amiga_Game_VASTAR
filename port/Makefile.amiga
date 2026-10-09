@@ -27,11 +27,16 @@ CFLAGS   := +aos68k_win -c99 -cpu=68060 -O3 -speed -DZ80_ASM -DVIDEO_ASM \
 CORE     := src/z80.c src/z80_68k.s src/ay8910.c src/vastar.c src/video.c src/video_68k.s src/romload.c
 HEADERS  := $(wildcard src/*.h)
 
-all: $(OUT)/Vastar $(OUT)/Lockstep $(OUT)/Z80Test $(OUT)/VideoTest
+all: $(OUT)/Vastar $(OUT)/Vastar.info $(OUT)/Lockstep $(OUT)/Z80Test $(OUT)/VideoTest
 
 $(OUT)/Vastar: $(CORE) src/main_amiga.c src/amiga_68k.s $(HEADERS)
 	mkdir -p $(OUT)
 	vc $(CFLAGS) $(CORE) src/main_amiga.c src/amiga_68k.s -o $@ -lamiga
+
+# the icon (made by ../tools/make_icon.py from a frame of the game, tool types SCALE=1 ...)
+$(OUT)/Vastar.info: amiga/Vastar.info
+	mkdir -p $(OUT)
+	cp $< $@
 
 $(OUT)/Lockstep: $(CORE) tests/lockstep.c $(HEADERS)
 	mkdir -p $(OUT)
