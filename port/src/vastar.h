@@ -84,6 +84,10 @@ typedef struct Vastar {
        allow 3 to 6), and lives that do not run out */
     uint8_t lives, infinite_lives;
 
+    /* player 2 (alternating) plays with player 1's controls; the arcade reads a
+       second set of controls for player 2 (P2). On by default (vastar_init). */
+    uint8_t p2_from_p1;
+
     Z80 main, sub;
     AY8910 ay;
 

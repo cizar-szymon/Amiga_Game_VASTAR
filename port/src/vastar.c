@@ -231,6 +231,7 @@ void vastar_init(Vastar *m, uint32_t sample_rate)
     ay_init(&m->ay, VASTAR_AY_CLOCK, sample_rate);
     m->dsw1 = m->game ? m->game->dsw1 : 0xbf;
     m->dsw2 = m->game ? m->game->dsw2 : 0xff;
+    m->p2_from_p1 = 1;
     vastar_reset(m);
 }
 
@@ -277,7 +278,7 @@ int vastar_run_frame(Vastar *m, int16_t *audio)
     }
 
     /* the inputs as the sub CPU reads them */
-    m->smem[0x8000] = m->in_p2;
+    m->smem[0x8000] = (uint8_t)(m->in_p2 | (m->p2_from_p1 ? m->in_p1 : 0));
     m->smem[0x8040] = m->in_p1;
     m->smem[0x8080] = m->in_system;
     for (slice = 0; slice < VASTAR_LINES / SLICE_LINES; slice++) {

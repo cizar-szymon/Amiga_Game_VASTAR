@@ -8,6 +8,8 @@
  *   -scale N            window scale (default 3)
  *   -dsw1 HH -dsw2 HH   DIP switches (hex, default from MAME)
  *   -freeplay           no coins needed (DIP switch); fire also starts a game
+ *   -p2separate         player 2 needs its own controls (as in the arcade); by default
+ *                       player 2 plays with player 1's (they take turns anyway)
  *   -lives N            lives at the start of a game, 1-9 (not in the original: the DIP
  *                       switches allow 3 to 6); -lives inf: lives do not run out
  *   -nosound
@@ -55,7 +57,7 @@ static const char *rompaths[16];
 static int nrompaths;
 static int scale = 3, nosound, fast, headless, stats;
 static long max_frames = -1;
-static int dsw1 = -1, dsw2 = -1, lives, infinite_lives, freeplay;
+static int dsw1 = -1, dsw2 = -1, lives, infinite_lives, freeplay, p2separate;
 static const char *shot_dir;
 static long shot_frames[64];
 static int shot_count;
@@ -130,6 +132,7 @@ static void parse_args(int argc, char **argv)
         else if (!strcmp(a, "-dsw2")) dsw2 = (int)strtol(NEXT(), 0, 16);
         else if (!strcmp(a, "-nosound")) nosound = 1;
         else if (!strcmp(a, "-freeplay")) freeplay = 1;
+        else if (!strcmp(a, "-p2separate")) p2separate = 1;
         else if (!strcmp(a, "-lives")) {
             const char *l = NEXT();
             if (!strcmp(l, "inf")) infinite_lives = 1;
@@ -351,6 +354,7 @@ int main(int argc, char **argv)
         machine.dsw2 &= 0xf8;                       /* coin A: free play */
     machine.lives = (uint8_t)(lives < 0 ? 0 : lives > 9 ? 9 : lives);
     machine.infinite_lives = (uint8_t)infinite_lives;
+    machine.p2_from_p1 = (uint8_t)!p2separate;
     video_init(&video, &machine);
 
     if (SDL_Init(headless ? SDL_INIT_TIMER : SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0) {
