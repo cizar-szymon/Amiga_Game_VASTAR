@@ -467,6 +467,92 @@ static void comp_sprites(const Video *v, int by, int bx, uint8_t *t)
     }
 }
 
+/* ---- whole rows of blocks ----
+ *
+ * When most blocks of a block row have to be composed (after a scroll change), the row
+ * is built as one strip of 8 x 224 pixels, walking the tiles of the column once each
+ * instead of twice per block. The strip has 8 pixels of margin on both sides, so that
+ * the partly visible first and last tiles can be written whole.
+ */
+#define STRIP_W 240                      /* 8 + 224 + 8 */
+#define ROW_MIN 12                       /* blocks in a row from which the strip is cheaper */
+
+#ifdef VIDEO_ASM
+/* video_68k.s */
+void strip_layer_asm(uint8_t *strip, const uint16_t *ptile, const uint8_t *tile_any, const uint8_t *code,
+                     const uint8_t *attr, const uint8_t *col, uint32_t scroll, uint32_t by, uint32_t opaque,
+                     const uint32_t *tabs);
+#else
+static void strip_layer_c(const Video *v, int k, const uint8_t *code, const uint8_t *attr,
+                          const uint8_t *col, int scroll, int by, uint8_t *strip, int opaque)
+{
+    const int t0 = (VIDEO_Y1 + scroll) & 0xff;     /* tilemap row of screen x 0 */
+    int r = t0 >> 3, off = (t0 & 7) + 1;          /* strip index of the first tile's left pixel */
+    for (; off < 8 + SCREEN_W; off += 8, r = (r - 1) & 31) {
+        const int i = (r << 5) | by;
+        const uint8_t a = attr[i];
+        const int c = ((a << 8) | code[i]) & 0x1ff;
+        const uint16_t *w = v->ptile[k][c][(a >> 3) & 1];
+        const int fx = (a & 0x04) ? 7 : 0;
+        const uint32_t cl = (uint32_t)((col[i] & 0x3f) << 2) * 0x01010101UL;
+        uint8_t *d = strip + off;
+        int px;
+        if (!opaque && !v->tile_any[k][c])
+            continue;
+        for (px = 0; px < 8; px++, d += STRIP_W) {
+            unsigned hi = w[px ^ fx] >> 8, lo = w[px ^ fx] & 0xff;
+            if (opaque) {
+                STORE32(d, v->xpix[hi] | cl);
+                STORE32(d + 4, v->xpix[lo] | cl);
+            } else {
+                uint32_t m0 = v->xmask[hi], m1 = v->xmask[lo];
+                if (m0)
+                    STORE32(d, (LOAD32(d) & ~m0) | ((v->xpix[hi] | cl) & m0));
+                if (m1)
+                    STORE32(d + 4, (LOAD32(d + 4) & ~m1) | ((v->xpix[lo] | cl) & m1));
+            }
+        }
+    }
+}
+#endif
+
+static void strip_layer(const Video *v, int k, const uint8_t *ram, int code_off, int attr_off, int col_off,
+                        int scroll, int by, uint8_t *strip, int opaque)
+{
+#ifdef VIDEO_ASM
+    strip_layer_asm(strip, v->ptile[k][0][0], v->tile_any[k], ram + code_off, ram + attr_off, ram + col_off,
+                    (uint32_t)scroll, (uint32_t)by, (uint32_t)opaque, v->xpix);
+#else
+    strip_layer_c(v, k, ram + code_off, ram + attr_off, ram + col_off, scroll, by, strip, opaque);
+#endif
+}
+
+/* the sprites into the strip of block row by */
+static void strip_sprites(const Video *v, int by, uint8_t *strip)
+{
+    const int r0 = by * 8;
+    int i;
+    for (i = 0; i < v->nsprites; i++) {
+        const struct SprCopy *s = &v->sprites[i];
+        int ya = s->sy0 > r0 ? s->sy0 : r0, yb = s->sy1 < r0 + 7 ? s->sy1 : r0 + 7;
+        int y, x;
+        if (ya > yb)
+            continue;
+        for (y = ya; y <= yb; y++) {           /* screen row = arcade x */
+            int px = y - s->ox;
+            uint8_t *d = strip + (y - r0) * STRIP_W + 8;
+            if (s->flipx)
+                px = 15 - px;
+            for (x = s->sx0; x <= s->sx1; x++) {   /* screen x = 239 - arcade y */
+                int py = VIDEO_Y1 - x - s->oy;
+                uint8_t p = s->gfx[(s->flipy ? s->h - 1 - py : py) * 16 + px];
+                if (p)
+                    d[x] = (uint8_t)(s->color | p);
+            }
+        }
+    }
+}
+
 /* profiling hook (STATS=FULL on the Amiga): called after each stage of
    video_render_screen() with 0 = tiles checked, 1 = blocks marked, 2 = blocks composed */
 void (*video_prof)(int stage);
@@ -525,7 +611,55 @@ int video_render_screen(Video *v, const Vastar *m, uint8_t *screen)
 #define BG1(op) comp_layer(v, 1, m->bg1ram, BG_CODE, BG_ATTR, BG_COL, bg1s[by], by, bx, t, op)
 #define FG(op)  comp_layer(v, 2, m->fgram, FG_CODE, FG_ATTR, FG_COL, 0, by, bx, t, op)
 #define SPRITES() do { if (spr_now[by][bx]) comp_sprites(v, by, bx, t); } while (0)
-    for (by = 0; by < BLK_ROWS; by++)
+    for (by = 0; by < BLK_ROWS; by++) {
+        int count = 0, sprites = 0;
+        for (bx = 0; bx < BLK_COLS; bx++) {
+            count += v->blk[by][bx];
+            sprites |= spr_now[by][bx];
+        }
+        if (count >= ROW_MIN) {
+            /* the whole row as one strip */
+            static uint32_t strip_l[8 * STRIP_W / 4];
+            uint8_t *strip = (uint8_t *)strip_l;
+#define SBG0(op) strip_layer(v, 0, m->bg0ram, BG_CODE, BG_ATTR, BG_COL, bg0s[by], by, strip, op)
+#define SBG1(op) strip_layer(v, 1, m->bg1ram, BG_CODE, BG_ATTR, BG_COL, bg1s[by], by, strip, op)
+#define SFG(op)  strip_layer(v, 2, m->fgram, FG_CODE, FG_ATTR, FG_COL, 0, by, strip, op)
+#define SSPR() do { if (sprites) strip_sprites(v, by, strip); } while (0)
+            switch (m->priority) {
+            case 1: SBG0(1); SBG1(0); SSPR(); SFG(0); break;
+            case 2: SBG0(1); SSPR(); SBG0(0); SBG1(0); SFG(0); break;
+            case 3: SBG0(1); SBG1(0); SFG(0); SSPR(); break;
+            case 4: SFG(1); SSPR(); SBG0(0); SBG1(0); break;
+            default: SBG0(1); SSPR(); SBG1(0); SFG(0); break;
+            }
+#undef SBG0
+#undef SBG1
+#undef SFG
+#undef SSPR
+            for (bx = 0; bx < BLK_COLS; bx++) {
+                const uint8_t *src = strip + 8 + bx * 8;
+                uint8_t *d = screen + by * 8 * SCREEN_W + bx * 8;
+                int y, same = 1;
+                if (!v->blk[by][bx])
+                    continue;
+                for (y = 0; y < 8; y++)
+                    if (LOAD32(d + y * SCREEN_W) != LOAD32(src + y * STRIP_W) ||
+                        LOAD32(d + y * SCREEN_W + 4) != LOAD32(src + y * STRIP_W + 4)) {
+                        same = 0;
+                        break;
+                    }
+                if (same) {
+                    v->blk[by][bx] = 0;
+                    continue;
+                }
+                for (y = 0; y < 8; y++) {
+                    STORE32(d + y * SCREEN_W, LOAD32(src + y * STRIP_W));
+                    STORE32(d + y * SCREEN_W + 4, LOAD32(src + y * STRIP_W + 4));
+                }
+                n++;
+            }
+            continue;
+        }
         for (bx = 0; bx < BLK_COLS; bx++) {
             uint8_t *d;
             int y, same = 1;
@@ -555,6 +689,7 @@ int video_render_screen(Video *v, const Vastar *m, uint8_t *screen)
             }
             n++;
         }
+    }
 #undef BG0
 #undef BG1
 #undef FG

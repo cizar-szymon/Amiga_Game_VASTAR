@@ -41,7 +41,8 @@ Kod wspólny (`z80.c`, `ay8910.c`, `vastar.c`, `video.c`, `romload.c`) jest w C9
 1. bajty RAM kafelków porównywane są z kopią (`vscan`, po 4 bajty); zmienione kafelki są zaznaczane,
 2. wyznaczane są bloki 8×8 do sprawdzenia: wiersze bloków, którym zmieniło się przewinięcie, bloki pod zmienionymi kafelkami (z uwzględnieniem przewinięcia) oraz poprzednie i obecne prostokąty sprite'ów,
 3. każdy taki blok jest składany w 64-bajtowym buforze **wprost z kafelków**: wiersz ekranu w kolumnie kafelków to najwyżej dwa kafelki, a grafika kafelków jest wstępnie obrócona i spakowana po 2 bity na piksel (`ptile`, z wariantem odbitym w pionie, 48 KB), więc wiersz bloku to sklejenie dwóch 16-bitowych słów, przesunięcie o przewinięcie i rozwinięcie przez tablicę (`xpix`, `xmask`); kolory dwóch kafelków łączy maska `split`. Sprite'y rysowane są tylko w blokach, które mają sprite'a,
-4. blok jest porównywany z ekranem i zapisywany tylko wtedy, gdy się różni; `v->blk` mówi wersji na Amigę, które bloki wysłać.
+4. blok jest porównywany z ekranem i zapisywany tylko wtedy, gdy się różni; `v->blk` mówi wersji na Amigę, które bloki wysłać,
+5. **wiersze bloków** (gałąź `row-compose`): gdy w wierszu bloków jest co najmniej `ROW_MIN` (12) bloków do sprawdzenia (np. po zmianie przewinięcia), cały wiersz powstaje jako pas 8 × 224 pikseli (z marginesem 8 pikseli z obu stron): każda warstwa przechodzi kafelki kolumny po kolei, raz na kafelek (`strip_layer`, na Amidze w asemblerze), sprite'y są wpisywane w pas, a potem bloki pasa są porównywane z ekranem. Pozostałe wiersze idą blok po bloku.
 
 Zestaw roboczy jest mały (spakowane kafelki 48 KB, tablice 2 KB, RAM kafelków), zgodnie z „Warp RTG Developer notes” (L2 96 KB). Na Amidze `comp_layer` jest w asemblerze (`video_68k.s`). Przy odwróconym ekranie (koktajl) działa renderer wzorcowy (`video_render` + `video_rotate`). Zgodność: `vastar -check-render` (PC) i `VideoTest` (Amiga) porównują oba renderery w każdej klatce: 0 różnic.
 
@@ -115,7 +116,8 @@ Po „Warp RTG Developer notes” (A1200, Paula; bez pomijania / z pomijaniem):
 | bitmapy warstw, porównanie w C, zapis do VRAM w C | 38–40 / 60 (15 obrazów/s) | 26–27 / 37–41 |
 | + przeliczanie i kopiowanie w asm przez mały bufor, porównanie w asm | 39,5 / 61 (15) | 32 / 50 (12–13) |
 | renderer bez bitmap warstw (mieści się w L2), porównanie w rendererze | 36,7 / 60,7 (15) | 31,3 / 48,5 (13) |
+| + składanie całymi wierszami bloków (`row-compose`) | **42,5 / 60,6 (18)**; z AHI 61 (15) | 33,6 / 54,7 (14) |
 
-Renderer mieszczący się w L2 nie przyspieszył: teraz ogranicza go liczba instrukcji (ok. 500 bloków na klatkę, gdy przewija się tło, po 3 warstwy z obliczeniem kafelków dla każdego bloku), a nie pamięć. Zysk to ok. 250 KB mniej pamięci (bez bitmap warstw i bez kopii ekranu do porównań).
+Sam renderer mieszczący się w L2 nie przyspieszył: ogranicza go liczba instrukcji (ok. 500 bloków na klatkę, gdy przewija się tło, po 3 warstwy z obliczeniem kafelków dla każdego bloku), a nie pamięć. Zysk to ok. 250 KB mniej pamięci (bez bitmap warstw i bez kopii ekranu do porównań). Składanie wierszami usuwa większość powtarzanych obliczeń kafelków: składanie spada z ok. 11 do ok. 8,5 ms na klatkę.
 
 **Dalsze możliwości:** AY w asemblerze, składanie trzech warstw w jednym przejściu na blok, mniej bloków przy zmianie przewinięcia (przesunięcie zamiast składania), pomijanie pętli oczekiwania głównego Z80 (ok. 12% jego czasu).

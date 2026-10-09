@@ -205,3 +205,143 @@ _comp_layer_asm:
 	dbf	d7,.trans
 .ret:	movem.l	(sp)+,d2-d7/a2-a6
 	rts
+
+; void strip_layer_asm(UBYTE *strip, const UWORD *ptile, const UBYTE *tile_any,
+;                      const UBYTE *code, const UBYTE *attr, const UBYTE *col,
+;                      ULONG scroll, ULONG by, ULONG opaque, const ULONG *tabs)
+;
+; One tile layer into the strip of a block row (8 rows of 240 bytes, screen x 0 at
+; index 8): the tiles of the column one after the other - strip_layer_c() in video.c.
+	public	_strip_layer_asm
+	cnop	0,4
+_strip_layer_asm:
+	movem.l	d2-d7/a2-a6,-(sp)
+	move.l	72(sp),d0		; scroll
+	add.l	#239,d0
+	and.l	#255,d0			; t0 = tilemap row of screen x 0
+	move.l	d0,d7
+	and.l	#7,d7
+	addq.l	#1,d7			; off = index of the first tile's left pixel
+	lsr.l	#3,d0
+	lsl.l	#5,d0
+	or.l	76(sp),d0
+	move.l	d0,d6			; i = r << 5 | by
+	move.l	64(sp),a0		; attr
+	move.l	60(sp),a1		; code
+	move.l	68(sp),a2		; col
+	move.l	52(sp),a5		; ptile
+	move.l	84(sp),a6		; tabs: xpix, xmask (+1024)
+	tst.l	80(sp)
+	beq	.ttile
+
+.otile:	cmp.l	#232,d7
+	bge	.ret
+	moveq	#0,d1
+	move.b	(a0,d6.l),d1		; attribute
+	moveq	#0,d2
+	move.b	d1,d2
+	lsl.w	#8,d2
+	move.b	(a1,d6.l),d2
+	and.w	#$1ff,d2		; tile
+	moveq	#0,d3
+	move.b	(a2,d6.l),d3
+	and.b	#$3f,d3
+	lsl.b	#2,d3
+	mulu.l	#$01010101,d3		; colour
+	lsl.l	#5,d2
+	btst	#3,d1
+	beq.s	.of
+	add.l	#16,d2			; flip y variant
+.of:	lea	(a5,d2.l),a3
+	moveq	#2,d5
+	btst	#2,d1
+	beq.s	.ox
+	lea	14(a3),a3		; flip x: rows backwards
+	moveq	#-2,d5
+.ox:	move.l	48(sp),a4
+	add.l	d7,a4
+	moveq	#7,d2
+.orow:	move.w	(a3),d4
+	add.l	d5,a3
+	moveq	#0,d1
+	move.b	d4,d1			; right 4 pixels
+	moveq	#0,d0
+	move.w	d4,d0
+	lsr.w	#8,d0			; left 4 pixels
+	move.l	(a6,d0.l*4),d0
+	or.l	d3,d0
+	move.l	d0,(a4)
+	move.l	(a6,d1.l*4),d1
+	or.l	d3,d1
+	move.l	d1,4(a4)
+	lea	240(a4),a4
+	dbf	d2,.orow
+	addq.l	#8,d7
+	sub.l	#32,d6
+	and.l	#$3ff,d6
+	bra	.otile
+
+.ttile:	cmp.l	#232,d7
+	bge	.ret
+	moveq	#0,d1
+	move.b	(a0,d6.l),d1
+	moveq	#0,d2
+	move.b	d1,d2
+	lsl.w	#8,d2
+	move.b	(a1,d6.l),d2
+	and.w	#$1ff,d2
+	move.l	56(sp),a3		; tile_any
+	tst.b	(a3,d2.l)
+	beq	.tnext			; empty tile
+	moveq	#0,d3
+	move.b	(a2,d6.l),d3
+	and.b	#$3f,d3
+	lsl.b	#2,d3
+	mulu.l	#$01010101,d3
+	lsl.l	#5,d2
+	btst	#3,d1
+	beq.s	.tf
+	add.l	#16,d2
+.tf:	lea	(a5,d2.l),a3
+	moveq	#2,d5
+	btst	#2,d1
+	beq.s	.tx
+	lea	14(a3),a3
+	moveq	#-2,d5
+.tx:	move.l	48(sp),a4
+	add.l	d7,a4
+	moveq	#7,d2
+.trow:	move.w	(a3),d4
+	add.l	d5,a3
+	moveq	#0,d1
+	move.b	d4,d1
+	moveq	#0,d0
+	move.w	d4,d0
+	lsr.w	#8,d0
+	move.l	1024(a6,d0.l*4),d4	; mask of the left 4
+	beq.s	.t1
+	move.l	(a6,d0.l*4),d0
+	or.l	d3,d0
+	and.l	d4,d0
+	not.l	d4
+	and.l	(a4),d4
+	or.l	d4,d0
+	move.l	d0,(a4)
+.t1:	move.l	1024(a6,d1.l*4),d4	; mask of the right 4
+	beq.s	.t2
+	move.l	(a6,d1.l*4),d1
+	or.l	d3,d1
+	and.l	d4,d1
+	not.l	d4
+	and.l	4(a4),d4
+	or.l	d4,d1
+	move.l	d1,4(a4)
+.t2:	lea	240(a4),a4
+	dbf	d2,.trow
+.tnext:	addq.l	#8,d7
+	sub.l	#32,d6
+	and.l	#$3ff,d6
+	bra	.ttile
+
+.ret:	movem.l	(sp)+,d2-d7/a2-a6
+	rts
