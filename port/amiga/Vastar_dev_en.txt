@@ -1,0 +1,172 @@
+VASTAR - technical description of the options (for programmers)
+===============================================================
+
+The program emulates the Vastar arcade board (Orca, 1983): two Z80s at
+3.072 MHz (core in 68k assembler), an AY-3-8910 at 1.536 MHz, three tile
+layers and 16 sprites. Picture 224x256 (rotated monitor). The game always
+runs at 60.606 frames per second. Full description of the design and the
+measurements: docs/PORTING.md (Polish) in the repository
+https://github.com/cizar-szymon/Amiga_Game_VASTAR
+
+Options: Shell arguments or tool types of the icon (an entry in brackets
+is switched off). Case does not matter. Default value in [ ].
+
+
+GAME SET AND ROMS
+-----------------
+
+name | SET=name   [vastar]
+  Set as in MAME: vastar, vastar2, vastar3, vastar4, pprobe (Planet
+  Probe). ROM files are matched by CRC and size, in a zip by name too.
+  The clone sets (vastar2..4) also look for the parent's zip.
+
+ROMPATH=dir   (up to 4 times)
+  Places searched before PROGDIR:, PROGDIR:rom, PROGDIR:roms.
+  In each: SET.zip, parent.zip, a drawer SET and loose files.
+
+
+PICTURE
+-------
+
+SCALE=1|2|3   [2; icon: 1]
+  Magnification of 224x256: 1x, 2x, 3x (pixels repeated).
+
+SCREEN=WINDOW|FULL   [WINDOW]
+  FULL: an own screen in the smallest available mode that holds the
+  picture (not interlaced; depth 15/16 bit before 24/32 before 8),
+  borderless window without a title, picture centred, no mouse pointer.
+
+VIDEO=BLIT|WPA|WCP   [16/8 bit: BLIT, 32 bit: WPA, no P96: WCP]
+  BLIT: changed 8x8 blocks are converted to the screen format in a small
+        fast RAM buffer (one row of blocks), copied to a bitmap on the
+        board with writes only (longwords), then one BltBitMapRastPort
+        of the rectangle around the changes (done by the board on 8/16
+        bit screens).
+  WPA:  a frame in fast RAM in the screen format, p96WritePixelArray.
+  WCP:  WriteChunkyPixels with pens (when there is no Picasso96).
+  NORTG = VIDEO=WCP.
+
+FRAMESKIP=AUTO|n   [AUTO]
+  The emulation always runs at 60.606 Hz. AUTO: the picture of a frame
+  is left out when the previous frame ended more than 1/3 of a frame
+  late (at most 3 in a row). n: every (n+1)th frame is drawn;
+  FRAMESKIP=0 = every frame.
+
+MOVE16=ON   (test)
+  Copying to the board with MOVE16, after CacheClearE (on the 68060
+  MOVE16 reads memory past the copyback cache - without flushing it
+  copies stale data). Hardly any gain.
+
+
+SOUND
+-----
+
+SOUND=PAULA|AHI   [PAULA]
+  PAULA: audio.device, 8 bit, 22050 Hz, a left and a right channel,
+  3 buffers.
+  AHI: AHI_AllocAudio, 16 bit, 22050 Hz, two buffers in turn (AHI mixes
+  in software: about 5% of a 68060/50). When the chosen one is not
+  available (channels in use, no AHI), the other one is used.
+
+NOSOUND
+  No sound; the AY is not emulated then.
+
+
+GAME
+----
+
+LIVES=1..9 | LIVES=INFINITE   [from the DIP switches: 3]
+  Not in the original. Written into the shared RAM every frame:
+    F101 = the lives setting, which the game reads when a game starts,
+    F110 = the lives left in reserve (INFINITE: never below 2).
+  (found by comparing the RAM of games with 3 and 6 lives). Above 9 the
+  life icons do not fit in the bottom row. Only the vastar* sets.
+
+COINS   [without it: free play]
+  By default DSW2 bits 0-2 = 000 (coin A: free play, the game shows
+  CREDIT (99)), and the joystick's fire button also presses START1.
+  COINS: DSW2 unchanged, coins with the keys 5/6.
+
+JOYSTART=OFF   [on]
+  By default joystick left/right also set the START1/START2 bit in the
+  SYSTEM port (Vastar.joy_start). The game ignores start during a game
+  (checked on the PC).
+
+P2=SEPARATE   [player 2 = player 1]
+  In player 2's turns the arcade reads a separate port P2 (8000 of the
+  second Z80). By default player 1's inputs go there too
+  (Vastar.p2_from_p1). P2=SEPARATE: only P2's own (nothing feeds it in
+  this port).
+
+JOYPORT=BOTH
+  ReadJoyPort() for port 0 too (the mouse port; a mouse is ignored).
+  The port is read once per frame (ReadJoyPort is slow).
+
+DSW1=hh  DSW2=hh   [BF, FF]
+  DIP switches (ports A/B of the AY), as in MAME.
+  DSW1: bits 0-1 lives (11=3, 10=4, 01=5, 00=6), bit 2 unknown,
+        bit 3 = 0: author credits, bit 4 = 0: slow motion (cheat),
+        bit 5: bonus (1 = 20000/50000, 0 = 40000/70000),
+        bit 6: 0 upright, 1 cocktail (screen flipped for player 2),
+        bit 7 = 0: freeze.
+  DSW2: bits 0-2 coin A, bits 3-5 coin B (table in MAME vastar.cpp).
+  Free play overrides bits 0-2 of DSW2.
+
+
+MEASUREMENTS AND TESTS
+----------------------
+
+STATS | STATS=FULL
+  Window title every 2 s. STATS: "Vastar 60.6 fps (drawn 60) CPU 73% Paula"
+    fps     emulated frames per second (should be 60.6)
+    drawn   pictures drawn per second
+    CPU     CPU load of the game
+  STATS=FULL adds, in percent of the time:
+    emu         both Z80s + AY
+    video       renderer: t tile RAM check, m marking the blocks,
+                l composing blocks and rows, s sprites
+    present(x)  sending to the window in mode x: c block list,
+                w conversion and writing to the board, b blit
+    blocks      changed 8x8 blocks per frame (of 896)
+  On the full screen the title is not visible (AmiAgent reads it).
+
+VERIFY   (test)
+  Every 30th drawn frame the window is read back from the board
+  (p96ReadPixelArray) and every block is compared with what it should
+  show; the result goes to the title.
+
+Watchdog: when there is no new frame for 3 s, the state of the program
+(stack, segments, PC of both Z80s) goes to RAM:Vastar-hang.txt.
+
+Test programs (built with the game, make -f Makefile.amiga):
+  Lockstep ROMDIR [n]   asm Z80 core against the C core, instruction by
+                        instruction
+  VideoTest ROMDIR [n]  renderer against the reference renderer, every
+                        frame
+  Z80Test FILE          prelim / zexdoc / zexall with the asm core
+
+
+PC VERSION (SDL2)
+-----------------
+
+  vastar [options] [SET | FILE.zip]
+  -rompath DIR      another place with ROMs (default ., roms, rom,
+                    next to the program and ../../rom)
+  -scale N          window magnification [3]
+  -dsw1 HH -dsw2 HH DIP switches
+  -freeplay         free play, the pad's fire starts a game
+  -joystart         left/right = start 1/2 players
+  -lives N|inf      lives at the start / without end
+  -p2separate       separate controls for player 2
+  -nosound
+  -headless -fast   no window and sound / no 60 Hz pacing
+  -frames N         quit after N frames
+  -shots DIR F1,F2  BMP screenshots at these frames
+  -wav FILE         write the sound to a file
+  -script LIST      timed inputs, e.g. "1200:+coin1,1206:-coin1"
+                    (left right up down b1 b2 coin1 coin2 service
+                    start1 start2)
+  -check-render     fast renderer against the reference every frame
+  -stats            frame time, blocks, redrawn tiles
+  On the PC the default is the arcade's behaviour (coins, start with the
+  keys only).

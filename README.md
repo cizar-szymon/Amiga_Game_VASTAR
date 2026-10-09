@@ -6,7 +6,8 @@
 
 *Vastar (Orca / Sesame Japan, 1983) for the Amiga with a 68060 and an RTG graphics
 card, and for the PC (SDL2): an emulator of the arcade board written in C and 68k
-assembler. ROMs are not included.*
+assembler. ROMs are not included. English descriptions of the options:
+[for players](port/amiga/Vastar_en.txt), [for programmers](port/amiga/Vastar_dev_en.txt).*
 
 Port automatu **Vastar** (1983) na Amigę z procesorem 68060 i kartą graficzną RTG
 (Picasso96) oraz na PC. To **emulator płyty automatu**: oryginalne ROM-y gry wykonują
@@ -30,7 +31,7 @@ albo rozpakowane pliki).
 | `port/src` | emulator: Z80 w C (`z80.c`) i w asemblerze 68k (`z80_68k.s`, generowany przez `tools/gen_z80_68k.py`), AY-3-8910, model automatu, renderer (C + `video_68k.s`), wczytywanie ROM-ów z zipów MAME, nakładki `main_sdl.c` (PC) i `main_amiga.c` (Amiga) |
 | `port/tests` | testy: instrukcje Z80 (zexdoc/zexall), lockstep rdzenia asm z rdzeniem C, renderer kontra renderer wzorcowy, profil |
 | `port/amiga` | ikona i opis parametrów dla Amigi |
-| `releases/amiga` | gotowa paczka na Amigę: `Vastar`, `Vastar.info`, `Vastar.txt` (dla graczy), `Vastar_dev.txt` (dla programistów), bez ROM-ów |
+| `releases/amiga` | gotowa paczka na Amigę: `Vastar`, `Vastar.info`, `Vastar.txt` (dla graczy), `Vastar_dev.txt` (dla programistów), te same po angielsku (`*_en.txt`), bez ROM-ów |
 | `docs/PORTING.md` | **pełny opis portu**: architektura, pamięć, renderer, rdzeń asm, pomiary, opcje |
 | `docs/Warp RTG Developer notes.pdf` | zasady pracy z VRAM na Warpie (zastosowane w porcie) |
 | `rtl`, `sys`, `releases/*.rbf`, `*.mra` | oryginalny rdzeń MiSTer (opis: `docs/README_MiSTer.md`) |
@@ -48,6 +49,8 @@ Opisy parametrów: dla graczy [`port/amiga/Vastar.txt`](port/amiga/Vastar.txt)
 (najważniejsze: `SCALE`, `SCREEN=FULL`, `LIVES`, `COINS`, `JOYSTART=OFF`, ...),
 dla programistów [`port/amiga/Vastar_dev.txt`](port/amiga/Vastar_dev.txt)
 (wszystkie parametry, tryby obrazu i dźwięku, pomiary `STATS`, testy, wersja PC).
+Po angielsku: [`Vastar_en.txt`](port/amiga/Vastar_en.txt) (players),
+[`Vastar_dev_en.txt`](port/amiga/Vastar_dev_en.txt) (programmers).
 
 Wymagania: AmigaOS 3.1+, 68060 (budowane dla 68060), Picasso96 zalecane.
 

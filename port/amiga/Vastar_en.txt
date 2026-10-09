@@ -1,0 +1,70 @@
+VASTAR - the 1983 arcade game on the Amiga
+==========================================
+
+A shoot'em up by Orca/Sesame Japan from 1983. You fly a robot and shoot
+the enemy ships. For 1 or 2 players (taking turns).
+
+
+HOW TO START
+------------
+
+1. Put the arcade's ROM files into the drawer "rom" next to the game
+   (vastar.zip from MAME or the unpacked files).
+2. Double-click the Vastar icon.
+3. Joystick left  = game for 1 player
+   Joystick right = game for 2 players
+   (or the keys 1 / 2, or the fire button = 1 player)
+
+No coins needed: there are always enough credits.
+Player 2 uses the same joystick when it is their turn.
+
+
+CONTROLS
+--------
+
+  Joystick              Keyboard
+  --------              --------
+  stick                 cursor keys       move
+  fire                  Ctrl, Space, Z    fire
+  second button         Alt, X            shield
+  left / right          1 / 2             start 1 / 2 players
+                        P                 pause
+                        Esc               quit
+
+  CD32 pad: red = fire, blue = shield, Play = start.
+
+
+SETTINGS
+--------
+
+The settings are changed in the icon: select the Vastar icon, choose
+Icons -> Information from the menu and edit the list "Tool types".
+An entry in brackets is switched off. To switch it on, remove the
+brackets, for example
+
+    (SCREEN=FULL)   ->   SCREEN=FULL
+
+Then Save and start the game again.
+
+  SCALE=1             small picture (fastest)
+  SCALE=2             picture twice as large
+  SCREEN=FULL         the game on the whole screen instead of a window
+  LIVES=9             more lives at the start (1 to 9; arcade: 3 to 6)
+  LIVES=INFINITE      lives never run out
+  COINS               coins as in the arcade: key 5, then start
+  JOYSTART=OFF        joystick left/right does not start a game
+  JOYPORT=BOTH        a joystick in the mouse port works too
+  NOSOUND             no sound
+
+From the Shell too, for example:   Vastar SCREEN=FULL SCALE=2 LIVES=9
+
+
+WHEN SOMETHING DOES NOT WORK
+----------------------------
+
+- Requester "Cannot load the ROMs": no ROM files in the drawer "rom",
+  or a different version of the ROMs (the MAME set vastar is needed).
+- The game is too slow or the sound stutters: SCALE=1.
+- The full screen does not open: a smaller SCALE.
+
+For programmers: all options are described in Vastar_dev_en.txt.
