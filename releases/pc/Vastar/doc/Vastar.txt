@@ -1,0 +1,59 @@
+VASTAR - automat z 1983 roku na PC (Windows)
+============================================
+
+Strzelanka Orca/Sesame Japan z 1983 roku. Lecisz robotem i strzelasz
+do statkow wroga. Gra na 1 albo 2 graczy (na zmiane).
+Wersja PC portu na Amige: ten sam emulator automatu (2x Z80 + AY-3-8910).
+
+
+JAK ZACZAC
+----------
+
+1. Pliki ROM automatu wgraj do katalogu "rom" obok vastar.exe
+   (vastar.zip z MAME albo rozpakowane pliki).
+2. Uruchom vastar.exe.
+3. Klawisz 5 = moneta, potem 1 / 2 = start gry dla 1 / 2 graczy.
+
+
+STEROWANIE
+----------
+
+  Klawiatura                  Pad
+  ----------                  ---
+  strzalki          ruch      drazek / krzyzak
+  Ctrl, Spacja, Z   strzal    A
+  Alt, X            tarcza    B
+  5                 moneta    Back
+  1 / 2             start     Start
+  P                 pauza
+  F3                reset
+  Esc               wyjscie
+
+
+OPCJE (wiersz polecen)
+----------------------
+
+  vastar.exe [opcje] [ZESTAW | PLIK.zip]
+
+  -scale N            wielkosc okna (1, 2, 3 ...)
+  -freeplay           bez monet (Free Play)
+  -joystart           drazek w lewo / w prawo = start 1 / 2 graczy
+  -lives N            zycia na start (1 do 9), -lives inf = bez konca
+  -p2separate         osobne wejscie gracza 2 (jak w automacie)
+  -nosound            bez dzwieku
+  -rompath KATALOG    gdzie szukac ROM-ow (mozna podac kilka razy)
+  -dsw1 HH -dsw2 HH   przelaczniki DIP automatu (szesnastkowo)
+
+  Zestawy: vastar (domyslny), vastar2, vastar3, vastar4, pprobe
+  (Planet Probe), np.:  vastar.exe pprobe -rompath D:\MAME\roms
+
+ROM-y sa szukane w katalogu biezacym, w katalogu programu oraz
+w podkatalogach "rom" i "roms".
+
+
+GDY COS NIE DZIALA
+------------------
+
+- "Cannot load the ROMs": brak plikow ROM albo inna wersja zestawu
+  (potrzebny zestaw MAME vastar).
+- SDL2.dll musi lezec obok vastar.exe.

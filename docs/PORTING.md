@@ -139,3 +139,18 @@ Po „Warp RTG Developer notes” (A1200, Paula; bez pomijania / z pomijaniem):
 Sam renderer mieszczący się w L2 nie przyspieszył: ogranicza go liczba instrukcji (ok. 500 bloków na klatkę, gdy przewija się tło, po 3 warstwy z obliczeniem kafelków dla każdego bloku), a nie pamięć. Zysk to ok. 250 KB mniej pamięci (bez bitmap warstw i bez kopii ekranu do porównań). Składanie wierszami usuwa większość powtarzanych obliczeń kafelków: składanie spada z ok. 11 do ok. 8,5 ms na klatkę.
 
 **Dalsze możliwości:** AY w asemblerze, składanie trzech warstw w jednym przejściu na blok, mniej bloków przy zmianie przewinięcia (przesunięcie zamiast składania), pomijanie pętli oczekiwania głównego Z80 (ok. 12% jego czasu).
+
+## 7. Wydanie (układ od 3.11.2026)
+
+Układ wydań taki sam jak w portach Settlers i OpenDUNE. Wszystko robi `sh tools/make_release.sh` (`--no-full` bez paczek pełnych):
+
+- numer wydania z `$VER: Vastar <v>` w `port/src/main_amiga.c` (obecnie **0.1**); skrypt odmawia, gdy `build/amiga/Vastar` nie ma tego numeru. Wersja PC nie ma własnego numeru w programie: skrypt tylko ostrzega, gdy źródła są nowsze od `build/port/vastar.exe`;
+- `releases/amiga/Vastar/` (w gicie): `Vastar`, `Vastar.info`, szuflada `doc` z ikoną `doc.info` (`tools/make_doc_icon.py --drawer`, obrazek `tools/icon/drawer.png`, oba z Settlers) i w niej `Vastar.txt`, `Vastar_en.txt`, `Vastar_dev.txt`, `Vastar_dev_en.txt`, `Vastar_release.txt`, `Vastar_release_en.txt`; pusta `rom/` z `ReadMe.txt` (skąd ROM-y i gdzie je położyć, bez linków). Źródła tekstów: `port/amiga/`;
+- `releases/pc/Vastar/` (w gicie): `vastar.exe`, `SDL2.dll`, `doc/` (`Vastar.txt`, `Vastar_en.txt`, `SDL2-LICENSE.txt`, końce linii CR LF), `rom/ReadMe.txt`. Źródła: `port/pc/`;
+- archiwa ZIP (nie LHA) przez `tools/make_zip.py` z uprawnieniami Unix (program 755, reszta 644, katalogi jako wpisy, inaczej UnZip na Amidze daje program bez bitu E): `releases/amiga/Vastar-<v>.zip`, `releases/pc/Vastar-<v>-pc.zip`, tylko bieżąca wersja (starsze wypadają z gita i trafiają do `private/old/`);
+- paczki pełne z ROM-ami (`Vastar/rom/`) tylko na tym PC: `private/Vastar-<v>-full.zip`, `private/Vastar-<v>-pc-full.zip`; `private/` w `.gitignore`, starsze do `private/old/` (stare `build/Vastar_Amiga.lha` i `build/Vastar_PC.zip` też tam przeniesione);
+- `tools/check_no_roms.py` sprawdza drzewa i publiczne ZIP-y: plik o treści ROM-u z `rom/` (także z zipa), nazwa ROM-u albo cokolwiek poza `ReadMe.txt` w `rom/` – skrypt przerywa.
+
+Na Amidze: `UnZip Vastar-0.1.zip -d Work:Games`, ROM-y do `Work:Games/Vastar/rom/`.
+
+Do decyzji: licencja kodu portu (w paczce nie ma pliku licencji), ikona szuflady `Vastar.info` obok `Vastar/`, numer wydania w wersji PC (tytuł okna), stary `tools/make_release.py` (LHA) – zastąpiony, nie usunięty.

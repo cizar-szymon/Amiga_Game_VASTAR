@@ -10,3 +10,4 @@ output_files/
 /roms/
 __pycache__/
 *.pyc
+/private/

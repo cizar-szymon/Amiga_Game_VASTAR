@@ -1,0 +1,22 @@
+VASTAR - historia wydan
+=======================
+
+ZGLASZANIE BLEDOW
+-----------------
+
+Podaj numer wydania (w Shellu: Version Vastar), model Amigi, procesor
+i karte graficzna, ustawienia z Tool Types ikony i opis, co sie stalo.
+
+
+0.1 (9.10.2026)
+---------------
+
+Pierwsze wydanie.
+- Emulator automatu Vastar (2 x Z80 + AY-3-8910) wykonujacy oryginalne
+  ROM-y (zestaw vastar zgodny z MAME, ROM-y nie sa dolaczone).
+- Okno na Workbenchu (SCALE=1/2/3) albo pelny ekran (SCREEN=FULL).
+- Dzwiek przez Paule albo AHI.
+- Joystick, pad CD32 i klawiatura; Free Play, start joystickiem
+  w lewo / w prawo, drugi gracz tym samym joystickiem.
+- Opcje LIVES, COINS, JOYSTART=OFF i inne w Tool Types ikony
+  (opis w Vastar.txt).

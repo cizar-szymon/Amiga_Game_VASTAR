@@ -1,0 +1,59 @@
+VASTAR - the 1983 arcade game on the PC (Windows)
+=================================================
+
+A shoot'em up by Orca/Sesame Japan from 1983. You fly a robot and shoot
+the enemy ships. For 1 or 2 players (taking turns).
+PC version of the Amiga port: the same arcade emulator (2x Z80 + AY-3-8910).
+
+
+HOW TO START
+------------
+
+1. Put the arcade's ROM files into the folder "rom" next to vastar.exe
+   (vastar.zip from MAME or the unpacked files).
+2. Start vastar.exe.
+3. Key 5 = coin, then 1 / 2 = start a game for 1 / 2 players.
+
+
+CONTROLS
+--------
+
+  Keyboard                    Pad
+  --------                    ---
+  cursor keys       move      stick / d-pad
+  Ctrl, Space, Z    fire      A
+  Alt, X            shield    B
+  5                 coin      Back
+  1 / 2             start     Start
+  P                 pause
+  F3                reset
+  Esc               quit
+
+
+OPTIONS (command line)
+----------------------
+
+  vastar.exe [options] [SET | FILE.zip]
+
+  -scale N            window size (1, 2, 3 ...)
+  -freeplay           no coins needed (Free Play)
+  -joystart           stick left / right = start 1 / 2 players
+  -lives N            lives at the start (1 to 9), -lives inf = endless
+  -p2separate         separate player 2 input (as in the arcade)
+  -nosound            no sound
+  -rompath DIR        where to look for the ROMs (may be repeated)
+  -dsw1 HH -dsw2 HH   the arcade's DIP switches (hexadecimal)
+
+  Sets: vastar (default), vastar2, vastar3, vastar4, pprobe
+  (Planet Probe), for example:  vastar.exe pprobe -rompath D:\MAME\roms
+
+The ROMs are searched in the current folder, in the program's folder
+and in the subfolders "rom" and "roms".
+
+
+WHEN SOMETHING DOES NOT WORK
+----------------------------
+
+- "Cannot load the ROMs": no ROM files, or a different version of the
+  set (the MAME set vastar is needed).
+- SDL2.dll must be next to vastar.exe.

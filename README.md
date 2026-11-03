@@ -31,7 +31,8 @@ albo rozpakowane pliki).
 | `port/src` | emulator: Z80 w C (`z80.c`) i w asemblerze 68k (`z80_68k.s`, generowany przez `tools/gen_z80_68k.py`), AY-3-8910, model automatu, renderer (C + `video_68k.s`), wczytywanie ROM-ów z zipów MAME, nakładki `main_sdl.c` (PC) i `main_amiga.c` (Amiga) |
 | `port/tests` | testy: instrukcje Z80 (zexdoc/zexall), lockstep rdzenia asm z rdzeniem C, renderer kontra renderer wzorcowy, profil |
 | `port/amiga` | ikona i opis parametrów dla Amigi |
-| `releases/amiga` | gotowa paczka na Amigę: `Vastar`, `Vastar.info`, `Vastar.txt` (dla graczy), `Vastar_dev.txt` (dla programistów), te same po angielsku (`*_en.txt`), bez ROM-ów |
+| `releases/amiga` | wydanie na Amigę: rozpakowane `Vastar/` (program, ikona, szuflada `doc` z opisami PL/EN i historią wydań, pusta `rom/` z ReadMe) i to samo jako `Vastar-<wersja>.zip`, bez ROM-ów; robi je `tools/make_release.sh` |
+| `releases/pc` | to samo dla PC: `Vastar/` (`vastar.exe`, `SDL2.dll`, `doc/`, pusta `rom/`) i `Vastar-<wersja>-pc.zip`, bez ROM-ów |
 | `docs/PORTING.md` | **pełny opis portu**: architektura, pamięć, renderer, rdzeń asm, pomiary, opcje |
 | `docs/Warp RTG Developer notes.pdf` | zasady pracy z VRAM na Warpie (zastosowane w porcie) |
 | `rtl`, `sys`, `releases/*.rbf`, `*.mra` | oryginalny rdzeń MiSTer (opis: `docs/README_MiSTer.md`) |
@@ -39,9 +40,14 @@ albo rozpakowane pliki).
 
 ## Amiga: uruchomienie
 
-1. Skopiuj `releases/amiga/` do szuflady, np. `Work:Vastar`.
-2. Wgraj ROM-y do `Work:Vastar/rom/` (`vastar.zip` z MAME albo luźne pliki).
+1. Weź [`releases/amiga/Vastar-0.1.zip`](releases/amiga) i rozpakuj go na Amidze:
+   `UnZip Vastar-0.1.zip -d Work:Games` (powstaje szuflada `Work:Games/Vastar`).
+2. Wgraj ROM-y do `Work:Games/Vastar/rom/` (`vastar.zip` z MAME albo luźne pliki).
 3. Dwuklik na ikonie. Parametry w Tool Types: wpis w nawiasach jest wyłączony.
+   Opisy i historia wydań są w szufladzie `doc`.
+
+PC: rozpakuj [`releases/pc/Vastar-0.1-pc.zip`](releases/pc), ROM-y wgraj do `Vastar\rom\`,
+uruchom `vastar.exe`.
 
 Domyślnie: okno na Workbenchu, dźwięk przez Paulę, Free Play (bez monet), joystick
 w lewo / w prawo = start 1 / 2 graczy, gracz 2 gra tym samym joystickiem.

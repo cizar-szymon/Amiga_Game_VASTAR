@@ -1,0 +1,22 @@
+VASTAR - release history
+========================
+
+REPORTING BUGS
+--------------
+
+Give the release number (in the Shell: Version Vastar), the Amiga model,
+the CPU and graphics card, the icon's Tool Types and what happened.
+
+
+0.1 (9.10.2026)
+---------------
+
+The first release.
+- An emulator of the Vastar arcade board (2 x Z80 + AY-3-8910) running
+  the original ROMs (the MAME set vastar; the ROMs are not included).
+- A window on the Workbench (SCALE=1/2/3) or a full screen (SCREEN=FULL).
+- Sound through Paula or AHI.
+- Joystick, CD32 pad and keyboard; Free Play, start with the stick
+  left / right, player 2 with the same joystick.
+- LIVES, COINS, JOYSTART=OFF and other options in the icon's Tool Types
+  (described in Vastar_en.txt).
