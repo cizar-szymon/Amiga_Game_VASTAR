@@ -6,3 +6,7 @@
 port/amiga/*.txt text eol=lf
 releases/amiga/Vastar binary
 releases/amiga/*.txt text eol=lf
+
+# the release tree is kept byte for byte as in the release ZIP: WARP HUB
+# downloads these files one by one from git
+releases/** -text
